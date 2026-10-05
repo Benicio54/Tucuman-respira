@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tucumán Respira - Monitoreo Ambiental</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Leaflet CSS & JS (Mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Chart.js (Gráficos) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Header / Navbar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+          <i data-lucide="wind" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-none text-white tracking-wide">Tucumán Respira</h1>
+          <p class="text-xs text-slate-400 mt-0.5">Estación de Monitoreo Ambiental en Tiempo Real</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="last-update">Conectando a Supabase...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Banner Principal AQI / Alerta -->
+    <section>
+      <div id="air-banner" class="p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500 bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-800">
+        <div class="space-y-1 text-center sm:text-left">
+          <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i> Estado de Calidad del Aire
+          </div>
+          <h2 id="aqi-status" class="text-2xl font-bold text-white">Cargando datos...</h2>
+          <p id="air-description" class="text-sm text-slate-400">Obteniendo la última lectura del sensor...</p>
+        </div>
+
+        <div id="alarm-box" class="bg-slate-800/80 text-slate-300 border border-slate-700 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300">
+          <span class="text-xs text-slate-400 block uppercase tracking-wider mb-1">Buzzer / Alarma</span>
+          <span id="val-buzzer" class="font-bold text-base tracking-wide">--</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grilla de Tarjetas de Sensores -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- CO2 -->
+      <div id="card-co2" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Dióxido de Carbono (CO₂)</span>
+          <div class="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
+            <i data-lucide="cloud" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-co2" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">ppm</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-co2" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- CO -->
+      <div id="card-co" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Monóxido de Carbono (CO)</span>
+          <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg">
+            <i data-lucide="flame" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-co" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">ppm</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-co" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- PM2.5 -->
+      <div id="card-pm25" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Material Particulado (PM2.5)</span>
+          <div class="p-2 bg-sky-500/10 text-sky-400 rounded-lg">
+            <i data-lucide="droplets" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-pm25" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">µg/m³</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-pm25" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- Temperatura -->
+      <div id="card-temp" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Temperatura</span>
+          <div class="p-2 bg-rose-500/10 text-rose-400 rounded-lg">
+            <i data-lucide="thermometer" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-temp" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">°C</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-temp" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- Humedad -->
+      <div id="card-hum" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Humedad Relativa</span>
+          <div class="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
+            <i data-lucide="waves" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-hum" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">%</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-hum" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- Presión -->
+      <div id="card-pres" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Presión Atmosférica</span>
+          <div class="p-2 bg-purple-500/10 text-purple-400 rounded-lg">
+            <i data-lucide="gauge" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-pres" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">hPa</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-pres" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- Índice UV -->
+      <div id="card-uv" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Índice Radiación UV</span>
+          <div class="p-2 bg-yellow-500/10 text-yellow-400 rounded-lg">
+            <i data-lucide="sun" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-uv" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">UV</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-uv" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+      <!-- Iluminancia / Lux -->
+      <div id="card-lux" class="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-slate-400 text-sm font-medium">Luz Ambiental</span>
+          <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+            <i data-lucide="sun-medium" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span id="val-lux" class="text-3xl font-extrabold text-white tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-medium">lux</span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+          <span class="text-slate-500">Estado</span>
+          <span id="status-lux" class="font-medium text-slate-400">--</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Sección Inferior: Gráfico y Mapa GPS -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Gráfico Historico/Tiempo Real -->
+      <div class="lg:col-span-2 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-white text-base">Tendencia en Tiempo Real</h3>
+            <p class="text-xs text-slate-400">Histórico reciente de CO₂ y Material Particulado PM2.5</p>
+          </div>
+          <i data-lucide="line-chart" class="w-5 h-5 text-slate-500"></i>
+        </div>
+        <div class="h-64 sm:h-80 w-full">
+          <canvas id="realtimeChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Mapa de Ubicación GPS -->
+      <div class="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-white text-base">Ubicación de la Estación</h3>
+            <p id="val-gps-coords" class="text-xs text-slate-400">Buscando coordenadas GPS...</p>
+          </div>
+          <i data-lucide="map-pin" class="w-5 h-5 text-emerald-400"></i>
+        </div>
+        <div id="map" class="w-full h-64 sm:h-full min-h-[220px] rounded-xl z-0 border border-slate-800"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/60 mt-12 py-6 text-center text-xs text-slate-500">
+    <p>Tucumán Respira &copy; Monitoreo Ambiental IoT | Conectado a Supabase API</p>
+  </footer>
+
+  <!-- Script Lógico y Conexión Supabase -->
+  <script>
+    // Inicializar iconos Lucide
+    lucide.createIcons();
+
+    /* =========================
+       CONFIGURACIÓN DE SUPABASE
+    ========================== */
+    const SUPABASE_URL = "https://lskvyvpjjziuclaatrtu.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_O9Havbh6tsAZEDA8VFWQzg_LmTmU4mM";
+
+    /* =========================
+       REGLAS Y ESTADOS
+    ========================== */
+    function obtenerEstado(tipo, valor) {
+      if (valor === undefined || valor === null || isNaN(valor)) return { nivel: 0, texto: "Sin datos" };
+      
+      if (tipo === "co2") {
+        if (valor < 800) return { nivel: 0, texto: "Óptimo" };
+        if (valor < 1200) return { nivel: 1, texto: "Normal" };
+        if (valor < 2000) return { nivel: 2, texto: "Precaución" };
+        return { nivel: 3, texto: "Alerta" };
+      }
+      if (tipo === "co") {
+        if (valor < 2) return { nivel: 0, texto: "Seguro" };
+        if (valor < 9) return { nivel: 1, texto: "Normal" };
+        if (valor < 20) return { nivel: 2, texto: "Precaución" };
+        return { nivel: 3, texto: "Alerta" };
+      }
+      if (tipo === "pm25") {
+        if (valor < 12) return { nivel: 0, texto: "Óptimo" };
+        if (valor < 35) return { nivel: 1, texto: "Moderado" };
+        if (valor < 55) return { nivel: 2, texto: "Alto" };
+        return { nivel: 3, texto: "Alerta" };
+      }
+      if (tipo === "temp") {
+        if (valor >= 18 && valor <= 26) return { nivel: 0, texto: "Normal" };
+        if (valor >= 10 && valor <= 32) return { nivel: 1, texto: "Variable" };
+        if (valor >= 5 && valor <= 38) return { nivel: 2, texto: "Extremo" };
+        return { nivel: 3, texto: "Alerta" };
+      }
+      if (tipo === "hum") {
+        if (valor >= 40 && valor <= 60) return { nivel: 0, texto: "Ideal" };
+        if (valor >= 30 && valor <= 70) return { nivel: 1, texto: "Normal" };
+        return { nivel: 2, texto: "Extremo" };
+      }
+      if (tipo === "pres") {
+        if (valor >= 1005 && valor <= 1020) return { nivel: 0, texto: "Normal" };
+        return { nivel: 1, texto: "Variable" };
+      }
+      if (tipo === "uv") {
+        if (valor < 3) return { nivel: 0, texto: "Bajo" };
+        if (valor < 6) return { nivel: 1, texto: "Moderado" };
+        if (valor < 8) return { nivel: 2, texto: "Alto" };
+        return { nivel: 3, texto: "Muy alto" };
+      }
+      if (tipo === "lux") {
+        if (valor < 20) return { nivel: 1, texto: "Baja" };
+        if (valor < 70) return { nivel: 0, texto: "Normal" };
+        return { nivel: 1, texto: "Alta" };
+      }
+    }
+
+    /* =========================
+       COLOR DE TARJETAS
+    ========================== */
+    function actualizarEstadoSensor(tipo, estado) {
+      const status = document.getElementById("status-" + tipo);
+      const card = document.getElementById("card-" + tipo);
+      if (!status || !card) return;
+
+      status.innerText = estado.texto;
+      status.className = "font-medium";
+      card.classList.remove(
+        "border-emerald-500/60",
+        "border-amber-500/60",
+        "border-orange-500/60",
+        "border-rose-500/60"
+      );
+
+      if (estado.nivel === 0) {
+        status.classList.add("text-emerald-400");
+        card.classList.add("border-emerald-500/60");
+      } else if (estado.nivel === 1) {
+        status.classList.add("text-sky-400");
+      } else if (estado.nivel === 2) {
+        status.classList.add("text-amber-400");
+        card.classList.add("border-amber-500/60");
+      } else if (estado.nivel === 3) {
+        status.classList.add("text-rose-400");
+        card.classList.add("border-rose-500/60");
+      }
+    }
+
+    /* =========================
+       ESTADO GENERAL AQI Y BUZZER
+    ========================== */
+    function actualizarEstadoGeneral(estados) {
+      const niveles = estados.map(e => e.nivel);
+      const nivelMaximo = niveles.length > 0 ? Math.max(...niveles) : 0;
+
+      const titulo = document.getElementById("aqi-status");
+      const descripcion = document.getElementById("air-description");
+      const banner = document.getElementById("air-banner");
+      const alarma = document.getElementById("alarm-box");
+      const buzzer = document.getElementById("val-buzzer");
+
+      banner.className = "p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-500";
+
+      if (nivelMaximo === 0) {
+        titulo.innerText = "Calidad: Buena";
+        descripcion.innerText = "Todos los parámetros se encuentran dentro de rangos normales y seguros.";
+        banner.classList.add("bg-gradient-to-r", "from-emerald-950/60", "to-slate-800", "border", "border-emerald-500/30");
+        alarma.className = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300";
+        buzzer.innerText = "NORMAL";
+      } else if (nivelMaximo === 1) {
+        titulo.innerText = "Calidad: Aceptable";
+        descripcion.innerText = "Parámetros aceptables. Algunos valores requieren seguimiento.";
+        banner.classList.add("bg-gradient-to-r", "from-sky-950/60", "to-slate-800", "border", "border-sky-500/30");
+        alarma.className = "bg-sky-500/20 text-sky-300 border border-sky-500/40 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300";
+        buzzer.innerText = "NORMAL";
+      } else if (nivelMaximo === 2) {
+        titulo.innerText = "Precaución Requerida";
+        descripcion.innerText = "Se detectaron parámetros elevados. Monitoree las mediciones.";
+        banner.classList.add("bg-gradient-to-r", "from-amber-950/60", "to-slate-800", "border", "border-amber-500/30");
+        alarma.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300";
+        buzzer.innerText = "ATENCIÓN";
+      } else if (nivelMaximo === 3) {
+        titulo.innerText = "¡Alerta Ambiental!";
+        descripcion.innerText = "Se han sobrepasado los límites de seguridad recomendados.";
+        banner.classList.add("bg-gradient-to-r", "from-rose-950/60", "to-slate-800", "border", "border-rose-500/30");
+        alarma.className = "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300";
+        buzzer.innerText = "¡ALERTA!";
+      }
+    }
+
+    /* =========================
+       MAPA
+    ========================== */
+    const initialLat = -26.8167;
+    const initialLng = -65.2167;
+    const map = L.map("map").setView([initialLat, initialLng], 13);
+    
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    const marker = L.marker([initialLat, initialLng])
+      .addTo(map)
+      .bindPopup("<b>Estación Tucumán Respira</b><br>Monitoreo activo")
+      .openPopup();
+
+    /* =========================
+       GRÁFICO
+    ========================== */
+    const ctx = document.getElementById("realtimeChart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "CO₂ (ppm)",
+            data: [],
+            borderColor: "#10b981",
+            backgroundColor: "rgba(16,185,129,0.1)",
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: "PM2.5 (µg/m³)",
+            data: [],
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59,130,246,0.1)",
+            fill: true,
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: "#94a3b8" } }
+        },
+        scales: {
+          x: { ticks: { color: "#64748b" }, grid: { color: "#334155" } },
+          y: { ticks: { color: "#64748b" }, grid: { color: "#334155" } }
+        }
+      }
+    });
+
+    /* =========================
+       ACTUALIZAR INTERFAZ
+    ========================== */
+    function actualizarInterfaz(datos) {
+      /* Asignación de Valores */
+      document.getElementById("val-co2").innerText = datos.co2 ?? "--";
+      document.getElementById("val-co").innerText = datos.co !== undefined && datos.co !== null ? Number(datos.co).toFixed(2) : "--";
+      document.getElementById("val-pm25").innerText = datos.pm25 ?? "--";
+      document.getElementById("val-temp").innerText = datos.temperatura !== undefined && datos.temperatura !== null ? Number(datos.temperatura).toFixed(1) : "--";
+      document.getElementById("val-hum").innerText = datos.humedad !== undefined && datos.humedad !== null ? Number(datos.humedad).toFixed(0) : "--";
+      document.getElementById("val-pres").innerText = datos.presion !== undefined && datos.presion !== null ? Number(datos.presion).toFixed(0) : "--";
+      document.getElementById("val-uv").innerText = datos.uv !== undefined && datos.uv !== null ? Number(datos.uv).toFixed(1) : "--";
+      document.getElementById("val-lux").innerText = datos.luz ?? "--";
+
+      /* Cálculo de Estados */
+      const estados = {
+        co2: obtenerEstado("co2", datos.co2),
+        co: obtenerEstado("co", Number(datos.co)),
+        pm25: obtenerEstado("pm25", datos.pm25),
+        temp: obtenerEstado("temp", datos.temperatura),
+        hum: obtenerEstado("hum", datos.humedad),
+        pres: obtenerEstado("pres", datos.presion),
+        uv: obtenerEstado("uv", datos.uv),
+        lux: obtenerEstado("lux", datos.luz)
+      };
+
+      /* Actualizar Tarjetas individualmente */
+      Object.entries(estados).forEach(([tipo, estado]) => {
+        if (estado) actualizarEstadoSensor(tipo, estado);
+      });
+
+      /* Estado General del Sitio */
+      actualizarEstadoGeneral(Object.values(estados).filter(Boolean));
+
+      /* Estampa de Tiempo */
+      const horaActual = new Date().toLocaleTimeString();
+      document.getElementById("last-update").innerText = "Última actualización: " + horaActual;
+
+      /* Actualización del Mapa con GPS */
+      const lat = datos.latitud ?? initialLat;
+      const lng = datos.longitud ?? initialLng;
+      if (marker) {
+        marker.setLatLng([lat, lng]);
+        map.panTo([lat, lng]);
+        document.getElementById("val-gps-coords").innerText = `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+      }
+
+      /* Actualización de Gráficos en Tiempo Real */
+      if (chart.data.labels.length >= 10) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+        chart.data.datasets[1].data.shift();
+      }
+      chart.data.labels.push(horaActual);
+      chart.data.datasets[0].data.push(datos.co2 ?? 0);
+      chart.data.datasets[1].data.push(datos.pm25 ?? 0);
+      chart.update();
+    }
+
+    /* =========================
+       CONSULTA A SUPABASE (REST API)
+    ========================== */
+    async function obtenerUltimaMedicion() {
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/mediciones?select=*&order=id.desc&limit=1`,
+          {
+            headers: {
+              "apikey": SUPABASE_KEY,
+              "Authorization": `Bearer ${SUPABASE_KEY}`
+            }
+          }
+        );
+
+        if (!response.ok) throw new Error("Error en la respuesta de Supabase");
+
+        const data = await response.json();
+        if (data && data.length > 0) {
+          actualizarInterfaz(data[0]);
+        }
+      } catch (error) {
+        console.error("Error al consultar mediciones:", error);
+      }
+    }
+
+    // Ejecutar consulta inicial y refrescar cada 5 segundos
+    obtenerUltimaMedicion();
+    setInterval(obtenerUltimaMedicion, 5000);
+  </script>
+</body>
+</html>
