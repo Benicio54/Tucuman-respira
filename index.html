@@ -8,6 +8,9 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Font Awesome (para el icono de GitHub) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
@@ -46,15 +49,21 @@
         </div>
         <div>
           <h1 class="font-bold text-lg leading-none text-white tracking-wide">Tucumán Respira</h1>
-          <p class="text-xs text-slate-400 mt-0.5">Estación de Monitoreo Ambiental en Tiempo Real</p>
         </div>
       </div>
 
       <div class="flex items-center gap-4">
+        <!-- Estado de conexión -->
         <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="last-update">Conectando a Supabase...</span>
+          <span id="last-update">Conectando...</span>
         </div>
+
+        <!-- Botón / Enlace GitHub -->
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 text-sm rounded-xl border border-slate-600 transition">
+          <i class="fa-brands fa-github text-lg"></i>
+          <span class="hidden sm:inline">Ver Documentación & Código</span>
+        </a>
       </div>
     </div>
   </header>
@@ -231,7 +240,7 @@
     <!-- Sección Inferior: Gráfico y Mapa GPS -->
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      <!-- Gráfico Historico/Tiempo Real -->
+      <!-- Gráfico Histórico/Tiempo Real -->
       <div class="lg:col-span-2 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
           <div>
@@ -263,12 +272,11 @@
 
   <!-- Footer -->
   <footer class="border-t border-slate-800/60 mt-12 py-6 text-center text-xs text-slate-500">
-    <p>Tucumán Respira &copy; Monitoreo Ambiental IoT | Conectado a Supabase API</p>
+    <p>Tucumán Respira &copy; Monitoreo Ambiental IoT</p>
   </footer>
 
   <!-- Script Lógico y Conexión Supabase -->
   <script>
-    // Inicializar iconos Lucide
     lucide.createIcons();
 
     /* =========================
@@ -278,59 +286,62 @@
     const SUPABASE_KEY = "sb_publishable_O9Havbh6tsAZEDA8VFWQzg_LmTmU4mM";
 
     /* =========================
-       REGLAS Y ESTADOS
+       REGLAS Y ESTADOS DE SENSORES
     ========================== */
     function obtenerEstado(tipo, valor) {
       if (valor === undefined || valor === null || isNaN(valor)) return { nivel: 0, texto: "Sin datos" };
       
+      const v = Number(valor);
+
       if (tipo === "co2") {
-        if (valor < 800) return { nivel: 0, texto: "Óptimo" };
-        if (valor < 1200) return { nivel: 1, texto: "Normal" };
-        if (valor < 2000) return { nivel: 2, texto: "Precaución" };
+        if (v < 800) return { nivel: 0, texto: "Óptimo" };
+        if (v < 1200) return { nivel: 1, texto: "Normal" };
+        if (v < 2000) return { nivel: 2, texto: "Precaución" };
         return { nivel: 3, texto: "Alerta" };
       }
       if (tipo === "co") {
-        if (valor < 2) return { nivel: 0, texto: "Seguro" };
-        if (valor < 9) return { nivel: 1, texto: "Normal" };
-        if (valor < 20) return { nivel: 2, texto: "Precaución" };
+        if (v < 2) return { nivel: 0, texto: "Seguro" };
+        if (v < 9) return { nivel: 1, texto: "Normal" };
+        if (v < 20) return { nivel: 2, texto: "Precaución" };
         return { nivel: 3, texto: "Alerta" };
       }
       if (tipo === "pm25") {
-        if (valor < 12) return { nivel: 0, texto: "Óptimo" };
-        if (valor < 35) return { nivel: 1, texto: "Moderado" };
-        if (valor < 55) return { nivel: 2, texto: "Alto" };
+        if (v < 12) return { nivel: 0, texto: "Óptimo" };
+        if (v < 35) return { nivel: 1, texto: "Moderado" };
+        if (v < 55) return { nivel: 2, texto: "Alto" };
         return { nivel: 3, texto: "Alerta" };
       }
       if (tipo === "temp") {
-        if (valor >= 18 && valor <= 26) return { nivel: 0, texto: "Normal" };
-        if (valor >= 10 && valor <= 32) return { nivel: 1, texto: "Variable" };
-        if (valor >= 5 && valor <= 38) return { nivel: 2, texto: "Extremo" };
+        if (v >= 18 && v <= 26) return { nivel: 0, texto: "Normal" };
+        if (v >= 10 && v <= 32) return { nivel: 1, texto: "Variable" };
+        if (v >= 5 && v <= 38) return { nivel: 2, texto: "Extremo" };
         return { nivel: 3, texto: "Alerta" };
       }
       if (tipo === "hum") {
-        if (valor >= 40 && valor <= 60) return { nivel: 0, texto: "Ideal" };
-        if (valor >= 30 && valor <= 70) return { nivel: 1, texto: "Normal" };
+        if (v >= 40 && v <= 60) return { nivel: 0, texto: "Ideal" };
+        if (v >= 30 && v <= 70) return { nivel: 1, texto: "Normal" };
         return { nivel: 2, texto: "Extremo" };
       }
       if (tipo === "pres") {
-        if (valor >= 1005 && valor <= 1020) return { nivel: 0, texto: "Normal" };
+        if (v >= 1005 && v <= 1020) return { nivel: 0, texto: "Normal" };
         return { nivel: 1, texto: "Variable" };
       }
       if (tipo === "uv") {
-        if (valor < 3) return { nivel: 0, texto: "Bajo" };
-        if (valor < 6) return { nivel: 1, texto: "Moderado" };
-        if (valor < 8) return { nivel: 2, texto: "Alto" };
+        if (v < 3) return { nivel: 0, texto: "Bajo" };
+        if (v < 6) return { nivel: 1, texto: "Moderado" };
+        if (v < 8) return { nivel: 2, texto: "Alto" };
         return { nivel: 3, texto: "Muy alto" };
       }
       if (tipo === "lux") {
-        if (valor < 20) return { nivel: 1, texto: "Baja" };
-        if (valor < 70) return { nivel: 0, texto: "Normal" };
+        if (v < 20) return { nivel: 1, texto: "Baja" };
+        if (v < 70) return { nivel: 0, texto: "Normal" };
         return { nivel: 1, texto: "Alta" };
       }
+      return { nivel: 0, texto: "Normal" };
     }
 
     /* =========================
-       COLOR DE TARJETAS
+       COLOR Y ESTILO DE TARJETAS
     ========================== */
     function actualizarEstadoSensor(tipo, estado) {
       const status = document.getElementById("status-" + tipo);
@@ -341,9 +352,10 @@
       status.className = "font-medium";
       card.classList.remove(
         "border-emerald-500/60",
+        "border-sky-500/60",
         "border-amber-500/60",
-        "border-orange-500/60",
-        "border-rose-500/60"
+        "border-rose-500/60",
+        "border-slate-800"
       );
 
       if (estado.nivel === 0) {
@@ -351,6 +363,7 @@
         card.classList.add("border-emerald-500/60");
       } else if (estado.nivel === 1) {
         status.classList.add("text-sky-400");
+        card.classList.add("border-sky-500/60");
       } else if (estado.nivel === 2) {
         status.classList.add("text-amber-400");
         card.classList.add("border-amber-500/60");
@@ -389,7 +402,7 @@
         buzzer.innerText = "NORMAL";
       } else if (nivelMaximo === 2) {
         titulo.innerText = "Precaución Requerida";
-        descripcion.innerText = "Se detectaron parámetros elevados. Monitoree las mediciones.";
+        descripcion.innerText = "Se detectaron parámetros elevados en uno o más sensores.";
         banner.classList.add("bg-gradient-to-r", "from-amber-950/60", "to-slate-800", "border", "border-amber-500/30");
         alarma.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-6 py-3 rounded-xl text-center min-w-[140px] transition-all duration-300";
         buzzer.innerText = "ATENCIÓN";
@@ -459,10 +472,10 @@
     });
 
     /* =========================
-       ACTUALIZAR INTERFAZ
+       ACTUALIZAR INTERFAZ Y DATOS
     ========================== */
     function actualizarInterfaz(datos) {
-      /* Asignación de Valores */
+      // 1. Asignar Valores en HTML
       document.getElementById("val-co2").innerText = datos.co2 ?? "--";
       document.getElementById("val-co").innerText = datos.co !== undefined && datos.co !== null ? Number(datos.co).toFixed(2) : "--";
       document.getElementById("val-pm25").innerText = datos.pm25 ?? "--";
@@ -472,10 +485,10 @@
       document.getElementById("val-uv").innerText = datos.uv !== undefined && datos.uv !== null ? Number(datos.uv).toFixed(1) : "--";
       document.getElementById("val-lux").innerText = datos.luz ?? "--";
 
-      /* Cálculo de Estados */
+      // 2. Calcular Estado Individual por Sensor
       const estados = {
         co2: obtenerEstado("co2", datos.co2),
-        co: obtenerEstado("co", Number(datos.co)),
+        co: obtenerEstado("co", datos.co),
         pm25: obtenerEstado("pm25", datos.pm25),
         temp: obtenerEstado("temp", datos.temperatura),
         hum: obtenerEstado("hum", datos.humedad),
@@ -484,19 +497,29 @@
         lux: obtenerEstado("lux", datos.luz)
       };
 
-      /* Actualizar Tarjetas individualmente */
+      // 3. Actualizar Tarjetas Individuales
       Object.entries(estados).forEach(([tipo, estado]) => {
-        if (estado) actualizarEstadoSensor(tipo, estado);
+        actualizarEstadoSensor(tipo, estado);
       });
 
-      /* Estado General del Sitio */
-      actualizarEstadoGeneral(Object.values(estados).filter(Boolean));
+      // 4. Recalcular Estado General de Calidad del Aire (Sólo basándose en variables de contaminación/respiratorias directas)
+      const estadosCriticos = [estados.co2, estados.co, estados.pm25];
+      actualizarEstadoGeneral(estadosCriticos);
 
-      /* Estampa de Tiempo */
-      const horaActual = new Date().toLocaleTimeString();
-      document.getElementById("last-update").innerText = "Última actualización: " + horaActual;
+      // 5. Mostrar la Fecha/Hora real del último registro insertado en la BD
+      const fechaRegistro = datos.created_at || datos.created_At || datos.timestamp;
+      let horaFormateada = "";
 
-      /* Actualización del Mapa con GPS */
+      if (fechaRegistro) {
+        const fecha = new Date(fechaRegistro);
+        horaFormateada = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } else {
+        horaFormateada = new Date().toLocaleTimeString();
+      }
+      
+      document.getElementById("last-update").innerText = "Última lectura: " + horaFormateada;
+
+      // 6. Actualización de Mapa y GPS
       const lat = datos.latitud ?? initialLat;
       const lng = datos.longitud ?? initialLng;
       if (marker) {
@@ -505,13 +528,13 @@
         document.getElementById("val-gps-coords").innerText = `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
       }
 
-      /* Actualización de Gráficos en Tiempo Real */
+      // 7. Actualización del Gráfico
       if (chart.data.labels.length >= 10) {
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
         chart.data.datasets[1].data.shift();
       }
-      chart.data.labels.push(horaActual);
+      chart.data.labels.push(horaFormateada);
       chart.data.datasets[0].data.push(datos.co2 ?? 0);
       chart.data.datasets[1].data.push(datos.pm25 ?? 0);
       chart.update();
@@ -543,7 +566,7 @@
       }
     }
 
-    // Ejecutar consulta inicial y refrescar cada 5 segundos
+    // Ejecutar al cargar y refrescar cada 5 segundos
     obtenerUltimaMedicion();
     setInterval(obtenerUltimaMedicion, 5000);
   </script>
