@@ -49,15 +49,14 @@ const METRICS = [
   },
   {
     id: "co", field: "co", title: "Monóxido de Carbono (CO)", short: "CO",
-    unit: "ppm", icon: "flame", decimals: 2, alert: true, meterMax: 30,
-    source: "EPA AQI (8 h) · OSHA",
+    unit: "ppm", icon: "flame", decimals: 2, alert: true, meterMax: 50,
+    source: "NIOSH REL 8 h (35 ppm) · OSHA PEL (50 ppm)",
     ranges: [
       { max: 4.4, label: "Bueno", color: "emerald" },
-      { max: 9.4, label: "Moderado", color: "sky" },
-      { max: 12.4, label: "Grupos sensibles", color: "amber" },
-      { max: 15.4, label: "Dañino", color: "orange" },
-      { max: 30.4, label: "Muy dañino", color: "rose" },
-      { max: 50.4, label: "Peligroso", color: "fuchsia" },
+      { max: 34.9, label: "Moderado", color: "sky" },
+      { max: 50, label: "Dañino", color: "orange" },
+      { max: 100, label: "Muy dañino", color: "rose" },
+      { max: 200, label: "Peligroso", color: "fuchsia" },
       { max: Infinity, label: "Extremo", color: "fuchsia" }
     ]
   },
@@ -112,13 +111,13 @@ const METRICS = [
     ]
   },
   {
-    id: "uv", field: "uv", title: "Índice de Radiación UV", short: "UV",
-    unit: "", icon: "sun", decimals: 1, alert: true, meterMax: 11,
-    source: "OMS / ICNIRP",
+    id: "uv", field: "uv", title: "Radiación UV", short: "UV",
+    unit: "mW/cm²", icon: "sun", decimals: 2, alert: true, meterMax: 15,
+    source: "Sensor ML8511",
     ranges: [
-      { max: 2, label: "Bajo", color: "emerald" },
-      { max: 5, label: "Moderado", color: "amber" },
-      { max: 7, label: "Alto", color: "orange" },
+      { max: 1, label: "Bajo", color: "emerald" },
+      { max: 3, label: "Moderado", color: "amber" },
+      { max: 6, label: "Alto", color: "orange" },
       { max: 10, label: "Muy alto", color: "rose" },
       { max: Infinity, label: "Extremo", color: "fuchsia" }
     ]
@@ -149,9 +148,8 @@ const AQI_BREAKPOINTS = {
     [55.5, 125.4, 151, 200], [125.5, 225.4, 201, 300], [225.5, 500.4, 301, 500]
   ],
   co: [
-    [0.0, 4.4, 0, 50], [4.5, 9.4, 51, 100], [9.5, 12.4, 101, 150],
-    [12.5, 15.4, 151, 200], [15.5, 30.4, 201, 300], [30.5, 40.4, 301, 400],
-    [40.5, 50.4, 401, 500]
+    [0.0, 4.4, 0, 50], [4.5, 34.9, 51, 100], [35.0, 50.0, 101, 150],
+    [50.1, 100.0, 151, 200], [100.1, 200.0, 201, 300], [200.1, 500.0, 301, 500]
   ]
 };
 

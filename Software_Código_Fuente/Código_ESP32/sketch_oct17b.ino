@@ -106,13 +106,12 @@ const float BR_PM25[][4] = {
 };
 
 const float BR_CO[][4] = {
-  {0.0,  4.4,  0,   50},
-  {4.5,  9.4,  51,  100},
-  {9.5,  12.4, 101, 150},
-  {12.5, 15.4, 151, 200},
-  {15.5, 30.4, 201, 300},
-  {30.5, 40.4, 301, 400},
-  {40.5, 50.4, 401, 500}
+  {0.0,   4.4,   0,   50},
+  {4.5,   34.9,  51,  100},
+  {35.0,  50.0,  101, 150},
+  {50.1,  100.0, 151, 200},
+  {100.1, 200.0, 201, 300},
+  {200.1, 500.0, 301, 500}
 };
 
 float subIndice(const float br[][4], int cantidad, float c) {
@@ -129,7 +128,7 @@ float subIndice(const float br[][4], int cantidad, float c) {
 
 int calcularAQI() {
   float aqiPm = subIndice(BR_PM25, 6, (float)currentPM25);
-  float aqiCo = subIndice(BR_CO, 7, currentCO);
+  float aqiCo = subIndice(BR_CO, 6, currentCO);
   return (int)round(aqiPm > aqiCo ? aqiPm : aqiCo);
 }
 

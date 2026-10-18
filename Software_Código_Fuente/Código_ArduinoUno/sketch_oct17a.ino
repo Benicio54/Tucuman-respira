@@ -125,7 +125,7 @@ void leerSensores() {
   if (ppmCO < 0) ppmCO = 0;
 
   int uvRaw = analogRead(ML8511_OUT);
-  float uvVoltaje = uvRaw * (3.3 / 1023.0);
+  float uvVoltaje = uvRaw * (5.0 / 1023.0);
   uvIntensidad = (uvVoltaje - 0.99) * (15.0 / (3.3 - 0.99));
   if (uvIntensidad < 0) uvIntensidad = 0;
 
