@@ -485,6 +485,12 @@ a { color: inherit; }
 .badge-good { color: var(--lvl-emerald); border-color: color-mix(in srgb, var(--lvl-emerald) 40%, transparent); background: color-mix(in srgb, var(--lvl-emerald) 10%, transparent); }
 .badge-muted { color: var(--muted); }
 
+.panel-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.map-center { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.map-center:hover { color: var(--accent-strong); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.map-center:disabled { opacity: .45; cursor: not-allowed; }
+.map-center:disabled:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
 .link { color: var(--accent); text-decoration: none; }
 .link:hover { text-decoration: underline; }
 

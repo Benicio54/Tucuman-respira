@@ -172,6 +172,7 @@ const state = {
   sensorChart: null,
   map: null,
   marker: null,
+  station: null,
   tile: null,
   client: null,
   lastId: null,
@@ -480,6 +481,8 @@ function renderMap() {
     note.textContent = "";
     link.hidden = true;
     if (state.marker) { state.map.removeLayer(state.marker); state.marker = null; }
+    state.station = null;
+    byId("map-center").disabled = true;
     return;
   }
 
@@ -505,6 +508,14 @@ function renderMap() {
     state.marker = L.marker([lat, lng], { icon }).addTo(state.map);
   }
   state.map.setView([lat, lng], state.map.getZoom() < 12 ? 13 : state.map.getZoom());
+  state.station = { lat, lng };
+  byId("map-center").disabled = false;
+}
+
+function centerOnStation() {
+  if (!state.map || !state.station) return;
+  state.map.flyTo([state.station.lat, state.station.lng],
+    Math.max(state.map.getZoom(), 13), { duration: 0.7 });
 }
 
 /* ============================================================
@@ -596,10 +607,20 @@ function buildTrendChart() {
 /* ============================================================
    MODAL DE HISTÓRICO POR SENSOR
    ============================================================ */
-function openModal(el) { el.hidden = false; document.body.style.overflow = "hidden"; }
+function openModal(el) {
+  el.hidden = false;
+  const barra = window.innerWidth - document.documentElement.clientWidth;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  if (barra > 0) document.body.style.paddingRight = `${barra}px`;
+}
 function closeModal(el) {
   el.hidden = true;
-  if (!document.querySelector(".modal:not([hidden])")) document.body.style.overflow = "";
+  if (!document.querySelector(".modal:not([hidden])")) {
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+    document.body.style.paddingRight = "";
+  }
 }
 
 function buildModalRanges() {
@@ -955,6 +976,7 @@ function bindStatic() {
   byId("btn-download").addEventListener("click", () => openModal(byId("modal-download")));
   byId("btn-info").addEventListener("click", () => openModal(byId("modal-info")));
   byId("brand-refresh").addEventListener("click", () => location.reload());
+  byId("map-center").addEventListener("click", centerOnStation);
   byId("dl-confirm").addEventListener("click", handleDownload);
   byId("btn-silenciar").addEventListener("click", silenciarAlarma);
   byId("dl-range").addEventListener("change", (e) => {

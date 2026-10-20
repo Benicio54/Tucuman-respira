@@ -155,7 +155,12 @@
             <h2>Ubicación de la estación</h2>
             <p id="gps-coords">GPS sin señal</p>
           </div>
-          <span id="gps-badge" class="badge badge-muted">Sin señal</span>
+          <div class="panel-head-actions">
+            <span id="gps-badge" class="badge badge-muted">Sin señal</span>
+            <button type="button" id="map-center" class="icon-btn map-center" title="Centrar en la última ubicación de la estación" aria-label="Centrar en la última ubicación de la estación" disabled>
+              <i data-lucide="locate-fixed"></i>
+            </button>
+          </div>
         </div>
         <div id="map" class="map"></div>
         <div class="map-foot">
