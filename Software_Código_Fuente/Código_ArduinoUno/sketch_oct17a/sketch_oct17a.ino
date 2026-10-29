@@ -37,7 +37,7 @@ float ultimaLatValida = 0.0;
 float ultimaLonValida = 0.0;
 bool tieneUltimaValida = false;
 
-int co2Value = 400;
+int co2Value = 0;
 float ppmCO = 0.0;
 float temp = 0.0;
 float humedad = 0.0;

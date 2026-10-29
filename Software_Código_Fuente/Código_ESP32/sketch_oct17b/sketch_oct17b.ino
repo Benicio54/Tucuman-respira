@@ -4,7 +4,6 @@
 #include <ArduinoJson.h>
 #include <DNSServer.h>
 #include <WebServer.h>
-#include <Preferences.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,7 +33,6 @@ IPAddress apSubnet(255, 255, 255, 0);
 
 DNSServer dnsServer;
 WebServer server(80);
-Preferences preferences;
 
 // =====================================================
 // ZUMBADOR Y ALARMA
@@ -63,7 +61,7 @@ const int PMS_SET_PIN = 4;
 // VARIABLES DE LOS SENSORES
 // =====================================================
 
-int currentCO2 = 400;
+int currentCO2 = 0;
 float currentCO = 0.0;
 uint16_t currentPM25 = 0;
 float currentTemp = 0.0;
@@ -81,15 +79,31 @@ const unsigned long uploadInterval = 15000;
 unsigned long lastReport = 0;
 const unsigned long reportInterval = 15000;
 
-unsigned long lastRetry = 0;
-
 bool sensorDataUpdated = false;
-bool wifiConnected = false;
 
 String wifiSSID;
 String wifiPassword;
 
 int tramasInvalidas = 0;
+
+// =====================================================
+// ESTADO DE LA RED
+// =====================================================
+
+enum EstadoRed {
+  RED_AP,
+  RED_CONECTANDO,
+  RED_CONECTADA
+};
+
+EstadoRed estadoRed = RED_AP;
+bool apActivo = false;
+
+unsigned long intentoInicio = 0;
+unsigned long desconectadoDesde = 0;
+
+const unsigned long TIEMPO_INTENTO_MS = 20000;
+const unsigned long TIEMPO_CONFIRMAR_CAIDA_MS = 5000;
 
 // =====================================================
 // INDICE DE CALIDAD DEL AIRE (EPA 2024)
@@ -453,7 +467,7 @@ button {
 </form>
 <div class="info">
 <p>Estado WiFi: <strong><!--ESTADO_WIFI--></strong></p>
-<p>El punto de acceso de configuración seguirá disponible.</p>
+<p>Al conectar, esta red de configuración se cerrará automáticamente.</p>
 <p>Si no se abre automáticamente, ingresá a
 <strong>http://192.168.4.1</strong>.</p>
 </div>
@@ -500,32 +514,34 @@ void handleSaveWiFi() {
     return;
   }
 
-  preferences.begin("wifi-config", false);
-  preferences.putString("ssid", newSSID);
-  preferences.putString("password", newPassword);
-  preferences.end();
-
   wifiSSID = newSSID;
   wifiPassword = newPassword;
 
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
 
-  unsigned long inicioIntento = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - inicioIntento < 8000) {
-    delay(250);
-  }
+  estadoRed = RED_CONECTANDO;
+  intentoInicio = millis();
+  desconectadoDesde = 0;
 
-  bool conectado = (WiFi.status() == WL_CONNECTED);
-  String resultado = conectado
-      ? (String("Conectado a ") + newSSID + ".")
-      : (String("No se pudo conectar a ") + newSSID + ". Verificá la contraseña.");
+  Serial.printf(
+      "Intentando conectar a la red: %s\n",
+      wifiSSID.c_str()
+  );
 
   String pagina = "<!DOCTYPE html><html lang='es'><meta charset='UTF-8'>"
       "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-      "<body style='font-family:Arial;padding:24px'>"
-      "<h2>Configuración guardada</h2>"
-      "<p>Estado WiFi: <strong>" + resultado + "</strong></p>"
-      "<p>El punto de acceso de configuración permanecerá disponible.</p>"
+      "<body style='font-family:Arial;padding:24px;max-width:480px;margin:auto'>"
+      "<h2>Conectando…</h2>"
+      "<p>Intentando conectar a <strong>";
+  pagina += wifiSSID;
+  pagina += "</strong>.</p>"
+      "<p>Si la red <strong>";
+  pagina += AP_SSID;
+  pagina += "</strong> desaparece en los próximos segundos, "
+      "la conexión fue exitosa.</p>"
+      "<p>Si vuelve a aparecer, revisá la contraseña e intentá de nuevo.</p>"
       "<a href='/'>Volver</a></body></html>";
 
   server.send(200, "text/html; charset=utf-8", pagina);
@@ -678,24 +694,38 @@ void setupWebServer() {
 }
 
 // =====================================================
-// INICIAR PUNTO DE ACCESO PERMANENTE
+// RED DE CONFIGURACION (PUNTO DE ACCESO)
 // =====================================================
 
-void setupAccessPoint() {
-  WiFi.mode(WIFI_AP_STA);
-
+bool iniciarAP() {
+  WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(apIP, apGateway, apSubnet);
 
-  bool apStarted = WiFi.softAP(
-      AP_SSID,
-      AP_PASSWORD,
-      6,
-      false,
-      4
-  );
+  bool apStarted = false;
+
+  for (int intento = 1; intento <= 3 && !apStarted; intento++) {
+    apStarted = WiFi.softAP(
+        AP_SSID,
+        AP_PASSWORD,
+        6,
+        false,
+        4
+    );
+
+    if (!apStarted) {
+      Serial.printf(
+          "Intento %d de iniciar la red de configuración fallido.\n",
+          intento
+      );
+      delay(500);
+    }
+  }
 
   if (apStarted) {
-    Serial.println("Punto de acceso de configuración iniciado.");
+    dnsServer.start(53, "*", apIP);
+    apActivo = true;
+
+    Serial.println("Red de configuración iniciada.");
     Serial.printf("Red: %s\n", AP_SSID);
     Serial.printf("Contraseña: %s\n", AP_PASSWORD);
     Serial.printf(
@@ -703,61 +733,81 @@ void setupAccessPoint() {
         WiFi.softAPIP().toString().c_str()
     );
   } else {
-    Serial.println("Error al iniciar el punto de acceso.");
+    apActivo = false;
+    Serial.println("Error al iniciar la red de configuración.");
   }
 
-  dnsServer.start(53, "*", apIP);
-  setupWebServer();
+  return apStarted;
 }
 
-// =====================================================
-// CONECTAR A LA RED GUARDADA
-// =====================================================
-
-void connectSavedWiFi() {
-  preferences.begin("wifi-config", true);
-
-  wifiSSID = preferences.getString("ssid", "");
-  wifiPassword = preferences.getString("password", "");
-
-  preferences.end();
-
-  if (wifiSSID.length() == 0) {
-    Serial.println("No hay una red Wi-Fi guardada.");
-    Serial.println("Conectate al punto de acceso para configurarla.");
+void detenerAP() {
+  if (!apActivo) {
     return;
   }
 
-  Serial.printf(
-      "Intentando conectar a la red: %s\n",
-      wifiSSID.c_str()
-  );
+  dnsServer.stop();
+  WiFi.softAPdisconnect(true);
+  apActivo = false;
 
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
+  Serial.println("Red de configuración cerrada.");
+}
 
-  unsigned long startAttempt = millis();
+// =====================================================
+// GESTION DE LA CONEXION WI-FI
+// =====================================================
 
-  while (WiFi.status() != WL_CONNECTED &&
-         millis() - startAttempt < 15000) {
-    delay(500);
-    Serial.print(".");
-  }
+void gestionarRed() {
+  unsigned long ahora = millis();
 
-  Serial.println();
+  switch (estadoRed) {
+    case RED_CONECTANDO:
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("Conexión Wi-Fi establecida.");
+        Serial.print("IP de la red: ");
+        Serial.println(WiFi.localIP());
+        Serial.println(
+            "Usá esa IP en la aplicación web para controlar la alarma."
+        );
 
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiConnected = true;
-    Serial.println("Conexión Wi-Fi establecida.");
-    Serial.print("IP de la red: ");
-    Serial.println(WiFi.localIP());
-    Serial.println(
-      "Usá esa IP en la aplicación web para controlar la alarma."
-    );
-  } else {
-    wifiConnected = false;
-    Serial.println("No se pudo conectar a la red guardada.");
-    Serial.println("El punto de acceso sigue disponible.");
+        detenerAP();
+
+        estadoRed = RED_CONECTADA;
+        desconectadoDesde = 0;
+      } else if (ahora - intentoInicio >= TIEMPO_INTENTO_MS) {
+        WiFi.disconnect();
+
+        iniciarAP();
+
+        estadoRed = RED_AP;
+        Serial.println("No se pudo conectar a la red indicada.");
+        Serial.println("Red de configuración disponible.");
+      }
+      break;
+
+    case RED_CONECTADA:
+      if (WiFi.status() == WL_CONNECTED) {
+        desconectadoDesde = 0;
+      } else if (desconectadoDesde == 0) {
+        desconectadoDesde = ahora;
+      } else if (
+          ahora - desconectadoDesde >= TIEMPO_CONFIRMAR_CAIDA_MS
+      ) {
+        WiFi.disconnect();
+
+        wifiSSID = "";
+        wifiPassword = "";
+
+        iniciarAP();
+
+        estadoRed = RED_AP;
+        Serial.println("Se perdió la conexión Wi-Fi.");
+        Serial.println("Red de configuración disponible.");
+      }
+      break;
+
+    case RED_AP:
+    default:
+      break;
   }
 }
 
@@ -783,12 +833,16 @@ void setup() {
   pmsSerial.begin(9600, SERIAL_8N1, 18, 5);
   unoSerial.begin(9600, SERIAL_8N1, 16, 17);
 
-  setupAccessPoint();
-  connectSavedWiFi();
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
+
+  iniciarAP();
+  setupWebServer();
+  WiFi.setSleep(false);
 
   Serial.println();
   Serial.println("Sistema iniciado.");
-  Serial.println("El punto de acceso permanece disponible.");
+  Serial.println("Conectate a la red de configuración para elegir una red Wi-Fi.");
   Serial.println("Configuración: http://192.168.4.1");
   Serial.println("========================================");
 }
@@ -798,7 +852,10 @@ void setup() {
 // =====================================================
 
 void loop() {
-  dnsServer.processNextRequest();
+  if (apActivo) {
+    dnsServer.processNextRequest();
+  }
+
   server.handleClient();
 
   readUnoData();
@@ -828,14 +885,7 @@ void loop() {
     }
   }
 
-  if (WiFi.status() != WL_CONNECTED &&
-      wifiSSID.length() > 0 &&
-      now - lastRetry >= 30000) {
-    lastRetry = now;
-    WiFi.reconnect();
-  }
-
-  wifiConnected = WiFi.status() == WL_CONNECTED;
+  gestionarRed();
 
   delay(10);
 }

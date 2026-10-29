@@ -2,23 +2,38 @@
 # -*- coding: utf-8 -*-
 """Generador del informe técnico unificado «Tucumán Respira».
 
-Regenera Informe_Tucuman_Respira.pdf a partir del contenido del informe.
-Umbral de CO actualizado: «dañino» a partir de 35 ppm (NIOSH REL 8 h).
+Integra el informe técnico previo, la documentación del equipo y las
+correcciones recientes (red/AP, arranque del ESP32 y CO₂ por defecto).
 """
-import os
+from pathlib import Path
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
+from PIL import Image as PILImage
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
-    BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table,
-    TableStyle, PageBreak,
+    BaseDocTemplate, Frame, Image as RLImage, KeepTogether, PageBreak,
+    PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-SALIDA = os.path.join(BASE, "Informe_Tucuman_Respira.pdf")
+BASE = Path(__file__).resolve().parent
+SALIDA = str(BASE / "Informe_Tucuman_Respira.pdf")
+FIG = BASE / "figuras"
+
+FONT_DIR = Path("/usr/share/fonts/truetype/dejavu")
+pdfmetrics.registerFont(TTFont("DejaVu", FONT_DIR / "DejaVuSans.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVu-Bold", FONT_DIR / "DejaVuSans-Bold.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVu-Oblique", FONT_DIR / "DejaVuSans-Oblique.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVu-BoldOblique", FONT_DIR / "DejaVuSans-BoldOblique.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVuMono", FONT_DIR / "DejaVuSansMono.ttf"))
+pdfmetrics.registerFontFamily(
+    "DejaVu", normal="DejaVu", bold="DejaVu-Bold",
+    italic="DejaVu-Oblique", boldItalic="DejaVu-BoldOblique",
+)
 
 AZUL = colors.HexColor("#0f172a")
 VERDE = colors.HexColor("#059669")
@@ -26,57 +41,75 @@ GRIS = colors.HexColor("#64748b")
 GRIS_CLARO = colors.HexColor("#d7dee8")
 FONDO_SUAVE = colors.HexColor("#f8fafc")
 FONDO_COD = colors.HexColor("#f1f5f9")
-
 ANCHO = A4[0] - 30 * mm
 
 S = {
-    "marca": ParagraphStyle("marca", fontName="Helvetica-Bold", fontSize=11,
-                            textColor=VERDE, leading=15, spaceAfter=4),
-    "titulo": ParagraphStyle("titulo", fontName="Helvetica-Bold", fontSize=30,
-                             textColor=AZUL, leading=34, spaceAfter=6),
-    "subtitulo": ParagraphStyle("titulo2", fontName="Helvetica", fontSize=13,
-                                textColor=GRIS, leading=17, spaceAfter=10),
-    "autor": ParagraphStyle("autor", fontName="Helvetica-Bold", fontSize=11,
-                            textColor=AZUL, leading=15, spaceAfter=10),
-    "h1": ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=15,
-                         textColor=AZUL, leading=19, spaceBefore=12,
+    "marca": ParagraphStyle("marca", fontName="DejaVu-Bold", fontSize=10.5,
+                            textColor=VERDE, leading=14, spaceAfter=5),
+    "escuela": ParagraphStyle("escuela", fontName="DejaVu-Bold", fontSize=13,
+                              textColor=AZUL, leading=17, spaceAfter=2),
+    "proyecto": ParagraphStyle("proyecto", fontName="DejaVu", fontSize=10.5,
+                               textColor=GRIS, leading=14, spaceAfter=12),
+    "titulo": ParagraphStyle("titulo", fontName="DejaVu-Bold", fontSize=29,
+                             textColor=AZUL, leading=33, spaceAfter=6),
+    "subtitulo": ParagraphStyle("subtitulo", fontName="DejaVu", fontSize=12,
+                                textColor=GRIS, leading=16, spaceAfter=12),
+    "autor": ParagraphStyle("autor", fontName="DejaVu-Bold", fontSize=10.5,
+                            textColor=AZUL, leading=14, spaceAfter=5),
+    "equipo": ParagraphStyle("equipo", fontName="DejaVu", fontSize=8.8,
+                             textColor=AZUL, leading=12, spaceAfter=6),
+    "h1": ParagraphStyle("h1", fontName="DejaVu-Bold", fontSize=14.5,
+                         textColor=AZUL, leading=18, spaceBefore=11,
                          spaceAfter=6, keepWithNext=1),
-    "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=10.5,
-                         textColor=VERDE, leading=14, spaceBefore=9,
+    "h2": ParagraphStyle("h2", fontName="DejaVu-Bold", fontSize=10.5,
+                         textColor=VERDE, leading=13.5, spaceBefore=8,
                          spaceAfter=3, keepWithNext=1),
-    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9,
-                           textColor=colors.HexColor("#1e293b"), leading=12.6,
+    "body": ParagraphStyle("body", fontName="DejaVu", fontSize=8.9,
+                           textColor=colors.HexColor("#1e293b"), leading=12.2,
                            alignment=TA_JUSTIFY, spaceAfter=5),
-    "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=9,
-                             textColor=colors.HexColor("#1e293b"), leading=12.5,
-                             leftIndent=13, bulletIndent=3, spaceAfter=2.5),
-    "celda": ParagraphStyle("celda", fontName="Helvetica", fontSize=8,
-                            textColor=colors.HexColor("#1e293b"), leading=10.5),
-    "celda_b": ParagraphStyle("celda_b", fontName="Helvetica-Bold", fontSize=8,
-                              textColor=AZUL, leading=10.5),
-    "th": ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8,
-                         textColor=colors.white, leading=10.5),
-    "small": ParagraphStyle("small", fontName="Helvetica", fontSize=7.5,
-                            textColor=GRIS, leading=10),
-    "code": ParagraphStyle("code", fontName="Courier", fontSize=7, leading=8.8,
-                           textColor=colors.HexColor("#0f172a"),
+    "bullet": ParagraphStyle("bullet", fontName="DejaVu", fontSize=8.9,
+                             textColor=colors.HexColor("#1e293b"), leading=12.2,
+                             leftIndent=12, bulletIndent=2, spaceAfter=2.6),
+    "celda": ParagraphStyle("celda", fontName="DejaVu", fontSize=7.7,
+                            textColor=colors.HexColor("#1e293b"), leading=9.8),
+    "celda_b": ParagraphStyle("celda_b", fontName="DejaVu-Bold", fontSize=7.7,
+                              textColor=AZUL, leading=9.8),
+    "celda_s": ParagraphStyle("celda_s", fontName="DejaVu", fontSize=7.2,
+                              textColor=colors.HexColor("#1e293b"), leading=9.1),
+    "celda_bs": ParagraphStyle("celda_bs", fontName="DejaVu-Bold", fontSize=7.2,
+                               textColor=AZUL, leading=9.1),
+    "th": ParagraphStyle("th", fontName="DejaVu-Bold", fontSize=7.7,
+                         textColor=colors.white, leading=9.8),
+    "th_s": ParagraphStyle("th_s", fontName="DejaVu-Bold", fontSize=7.2,
+                           textColor=colors.white, leading=9.1),
+    "small": ParagraphStyle("small", fontName="DejaVu", fontSize=7.2,
+                            textColor=GRIS, leading=9.4),
+    "code": ParagraphStyle("code", fontName="DejaVuMono", fontSize=6.8,
+                           leading=8.5, textColor=colors.HexColor("#0f172a"),
                            backColor=FONDO_COD, borderColor=GRIS_CLARO,
                            borderWidth=0.5, borderPadding=6, spaceBefore=2,
                            spaceAfter=6),
-    "quote": ParagraphStyle("quote", fontName="Helvetica", fontSize=8.5,
-                            textColor=colors.HexColor("#0f172a"), leading=11.5,
-                            leftIndent=14, rightIndent=6,
+    "quote": ParagraphStyle("quote", fontName="DejaVu", fontSize=8.3,
+                            textColor=colors.HexColor("#0f172a"), leading=11.2,
+                            leftIndent=12, rightIndent=6,
                             backColor=FONDO_SUAVE, borderColor=GRIS_CLARO,
                             borderWidth=0.5, borderPadding=6, spaceAfter=6),
-    "indice": ParagraphStyle("indice", fontName="Helvetica", fontSize=9.5,
-                             textColor=AZUL, leading=15),
+    "indice": ParagraphStyle("indice", fontName="DejaVu", fontSize=9.2,
+                             textColor=AZUL, leading=14.2),
+    "figcap": ParagraphStyle("figcap", fontName="DejaVu", fontSize=7.1,
+                             textColor=GRIS, leading=9.2, alignment=TA_CENTER),
+    "nota": ParagraphStyle("nota", fontName="DejaVu", fontSize=8.0,
+                           textColor=colors.HexColor("#1e293b"), leading=11.2,
+                           backColor=FONDO_SUAVE, borderColor=GRIS_CLARO,
+                           borderWidth=0.5, borderPadding=7, spaceAfter=8),
 }
 
 story = []
 
 
 def esc(t):
-    return (str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    return (str(t).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;"))
 
 
 def h1(t):
@@ -105,14 +138,23 @@ def code(t):
                            S["code"]))
 
 
-def tabla(rows, anchos, negrita_primera=False):
+def cols(*fracs):
+    return [ANCHO * f for f in fracs]
+
+
+def tabla(rows, anchos, negrita_primera=False, small=False):
     data = []
     for ri, row in enumerate(rows):
         fila = []
         for ci, cell in enumerate(row):
-            est = S["th"] if ri == 0 else (
-                S["celda_b"] if (negrita_primera and ci == 0) else S["celda"])
-            fila.append(Paragraph(esc(cell), est))
+            if ri == 0:
+                est = S["th_s"] if small else S["th"]
+            elif negrita_primera and ci == 0:
+                est = S["celda_bs"] if small else S["celda_b"]
+            else:
+                est = S["celda_s"] if small else S["celda"]
+            txt = esc(str(cell)).replace("\n", "<br/>")
+            fila.append(Paragraph(txt, est))
         data.append(fila)
     t = Table(data, colWidths=anchos, repeatRows=1)
     t.setStyle(TableStyle([
@@ -129,260 +171,565 @@ def tabla(rows, anchos, negrita_primera=False):
     story.append(Spacer(1, 7))
 
 
+def fig(path, caption, width_cm=15.0, max_h_mm=92):
+    path = Path(path)
+    if not path.exists():
+        return
+    with PILImage.open(path) as im:
+        w, h = im.size
+    scale = min(width_cm * mm / w, max_h_mm * mm / h)
+    rl = RLImage(str(path), width=w * scale, height=h * scale)
+    rl.hAlign = "CENTER"
+    story.append(KeepTogether([
+        Spacer(1, 4), rl, Spacer(1, 3),
+        Paragraph(esc(caption), S["figcap"]), Spacer(1, 7),
+    ]))
+
+
+def fig_grid(items, cols_n=3):
+    cell_w = ANCHO / cols_n
+    rows = []
+    for i in range(0, len(items), cols_n):
+        row = []
+        for j in range(cols_n):
+            if i + j >= len(items):
+                row.append("")
+                continue
+            path, caption = items[i + j]
+            path = Path(path)
+            if not path.exists():
+                row.append("")
+                continue
+            with PILImage.open(path) as im:
+                w, h = im.size
+            scale = min((cell_w - 9) / w, 52 * mm / h)
+            rl = RLImage(str(path), width=w * scale, height=h * scale)
+            rl.hAlign = "CENTER"
+            row.append([rl, Spacer(1, 3),
+                        Paragraph(esc(caption), S["figcap"])])
+        rows.append(row)
+    t = Table(rows, colWidths=[cell_w] * cols_n)
+    t.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 7))
+
+
 def pie(canvas, doc):
     canvas.saveState()
     canvas.setStrokeColor(colors.HexColor("#e2e8f0"))
     canvas.setLineWidth(0.5)
     canvas.line(15 * mm, 14 * mm, A4[0] - 15 * mm, 14 * mm)
-    canvas.setFont("Helvetica", 7.5)
+    canvas.setFont("DejaVu", 7.1)
     canvas.setFillColor(GRIS)
     canvas.drawString(15 * mm, 10 * mm,
-                      "Tucumán Respira — Encargado: Benicio Gael Pieroni")
-    canvas.drawRightString(A4[0] - 15 * mm, 10 * mm, "Página %d" % doc.page)
+                      "Tucumán Respira — Escuela Técnica N°5 — Equipo 2026")
+    canvas.drawRightString(A4[0] - 15 * mm, 10 * mm,
+                           "Página %d" % doc.page)
     canvas.restoreState()
 
 
 # ===================== PORTADA =====================
-story.append(Spacer(1, 12))
+story.append(Spacer(1, 22))
 story.append(Paragraph("INFORME TÉCNICO DEL PROYECTO", S["marca"]))
-story.append(Spacer(1, 4))
+story.append(Paragraph("Escuela Técnica N°5", S["escuela"]))
+story.append(Paragraph("Proyecto: Tucumán Respira 2026", S["proyecto"]))
+story.append(Spacer(1, 12))
 story.append(Paragraph("Tucumán Respira", S["titulo"]))
 story.append(Paragraph(
-    "Panel web de monitoreo de calidad del aire IoT y firmwares de la "
-    "estación (Arduino Uno + ESP32)", S["body"]))
-story.append(Spacer(1, 8))
-story.append(Paragraph("Encargado del trabajo: Benicio Gael Pieroni",
-                       S["body"]))
+    "Estación de monitoreo de calidad del aire IoT: panel web, firmwares "
+    "Arduino Uno + ESP32 y documentación del equipo.", S["subtitulo"]))
+story.append(Spacer(1, 12))
+story.append(Paragraph("Equipo de trabajo", S["autor"]))
+story.append(Paragraph(
+    "Roy Luciano Molina · Maximo Valdez Leguina · Candela Rojas Perassi · "
+    "María Pía Olivar · Benicio Gael Pieroni · Joaquín Valdecanto · "
+    "Tatiana Maturano · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
+story.append(Paragraph(
+    "Documento consolidado por Benicio Gael Pieroni. 28 de octubre de 2026.",
+    S["equipo"]))
 story.append(Spacer(1, 12))
 
 tabla([
     ["Aspecto", "Detalle"],
-    ["Encargado", "Benicio Gael Pieroni"],
-    ["Proyecto", "Tucumán Respira — Estación de monitoreo ambiental IoT"],
+    ["Escuela", "Escuela Técnica N°5"],
+    ["Proyecto", "Tucumán Respira 2026 — Estación de monitoreo ambiental IoT"],
     ["Entregables",
      "Aplicación web estática (index.html · styles.css · app.js) y dos "
-     "firmwares: Arduino Uno (sketch_oct17a) y ESP32 (sketch_oct17b)"],
+     "firmwares: Arduino Uno (sketch_oct17a) y ESP32 (sketch_oct17b)."],
     ["Fuente de datos",
-     "Supabase (PostgreSQL) — tabla «mediciones» (API PostgREST)"],
-    ["Alcance de este informe",
-     "Documento único que consolida el informe del panel web, el detalle de "
-     "los cambios de umbrales realistas y los firmwares con su integración y "
-     "el control del zumbador."],
-    ["Fecha del informe", "18/10/2026"],
+     "Supabase (PostgreSQL) — tabla «mediciones» — API PostgREST."],
+    ["Alcance",
+     "Documento único que integra el informe técnico previo, la "
+     "documentación del equipo, el hardware, los firmwares, el panel web, "
+     "los datos y las correcciones recientes."],
+    ["Fecha", "28/10/2026"],
     ["Estado",
-     "Implementado, integrado y verificado (pendiente de publicación online)"],
-], [95, 410], negrita_primera=True)
+     "Implementado, integrado y publicado en GitHub Pages. La versión "
+     "corregida del ESP32 fue compilada y cargada."],
+    ["Repositorio", "github.com/Benicio54/Tucuman-respira"],
+    ["Panel web", "benicio54.github.io/Tucuman-respira"],
+], cols(0.19, 0.81), negrita_primera=True)
 
-p("Este documento reemplaza y unifica los informes anteriores («Informe "
-  "técnico del panel web» y «Cambios de umbrales realistas») y agrega los "
-  "firmwares del Arduino Uno y del ESP32, la integración entre ambos, la base "
-  "de datos y el control remoto del zumbador desde la web. Describe el diseño, "
-  "la arquitectura, las funcionalidades, los umbrales de referencia, las "
-  "correcciones aplicadas y las verificaciones realizadas durante el "
-  "desarrollo del sistema «Tucumán Respira».")
+story.append(Spacer(1, 2))
+story.append(Paragraph(
+    "Nota de consolidación: este documento reemplaza al informe técnico del "
+    "18/10/2026 y reúne la documentación elaborada por el equipo. Las "
+    "versiones anteriores se conservan en la carpeta Informes_anteriores/, "
+    "junto con el documento original del equipo y el prompt para recrear el "
+    "proyecto.", S["nota"]))
 story.append(PageBreak())
 
 # ===================== ÍNDICE =====================
 story.append(Paragraph("Índice de contenidos", S["h1"]))
 for t in [
-    "1. Resumen ejecutivo", "2. Contexto y objetivos del proyecto",
-    "3. Decisiones de diseño acordadas", "4. Arquitectura y stack tecnológico",
-    "5. Estructura de archivos y métricas de código",
-    "6. Fuente de datos: Supabase", "7. Métricas y umbrales de referencia",
-    "8. Cambios de umbrales realistas (antes / después)",
-    "9. Índice de Calidad del Aire (ICA / EPA)",
-    "10. Funcionalidades del panel web",
-    "11. Estados del sistema y comportamiento «offline»",
-    "12. Adaptación responsive (móviles y tablets)", "13. Seguridad",
-    "14. Firmware del Arduino Uno (adquisición y GPS)",
-    "15. Firmware del ESP32 (WiFi, Supabase y alarma)",
-    "16. Integración del sistema y control del zumbador",
-    "17. Correcciones de errores durante el desarrollo",
-    "18. Verificaciones y pruebas realizadas",
-    "19. Cómo ejecutar y visualizar el sistema",
-    "20. Pendientes y recomendaciones", "Anexo A — Configuración y claves",
+    "1. Resumen ejecutivo",
+    "2. Contexto, objetivos y alcance",
+    "3. Equipo, roles y metodología",
+    "4. Marco de referencia: calidad del aire",
+    "5. Arquitectura general y stack tecnológico",
+    "6. Hardware: componentes, conexiones y montaje",
+    "7. Firmware del Arduino Uno",
+    "8. Firmware del ESP32",
+    "9. Fuente de datos: Supabase",
+    "10. Panel web",
+    "11. Métricas, umbrales e ICA",
+    "12. Integración y flujo de datos",
+    "13. Pruebas, verificaciones y correcciones",
+    "14. Resultados y análisis de datos",
+    "15. Despliegue y uso",
+    "16. Pendientes, recomendaciones y conclusiones",
+    "17. Referencias",
+    "Anexo A — Configuración y claves",
     "Anexo B — Exportación de datos (CSV / JSON)",
     "Anexo C — Trama de comunicación Uno → ESP32",
-    "Anexo D — Prompt para recrear el proyecto con opencode",
+    "Anexo D — Registro fotográfico",
+    "Anexo E — Material complementario",
 ]:
     story.append(Paragraph(esc(t), S["indice"]))
 story.append(PageBreak())
 
 # ===================== 1. RESUMEN =====================
 h1("1. Resumen ejecutivo")
-p("«Tucumán Respira» es una estación de monitoreo ambiental que mide la "
-  "calidad del aire y variables meteorológicas y publica sus lecturas en la "
-  "nube. El sistema se compone de cuatro piezas: un Arduino Uno que adquiere "
-  "los sensores y calcula la posición GPS; un ESP32 que se conecta a Wi-Fi, "
-  "envía las mediciones a Supabase y gobierna una alarma sonora con zumbador; "
-  "una base de datos PostgreSQL en Supabase; y una aplicación web estática "
-  "que rediseñada por completo muestra los datos en vivo y permite "
-  "descargarlos y detener la alarma de forma remota.")
-p("Este informe único documenta el panel web, los umbrales realistas, los dos "
-  "firmwares y su integración. Entre los resultados se destacan: un panel "
-  "claro con datos en tiempo real y respaldo por sondeo, 8 métricas con "
-  "umbrales por estándar, un panel claro con datos en tiempo real y respaldo "
-  "por sondeo, 8 métricas con umbrales por estándar (EPA, OMS/ICNIRP, "
-  "OSHA/NIOSH, NIOSH y ASHRAE) con su fuente visible, el ICA (EPA) con PM2.5 y "
-  "CO, histórico y gráficos, descarga pública en CSV y JSON, mapa con "
-  "OpenStreetMap y botón para detener la alarma.")
-story.append(Spacer(1, 2))
-h2("Resultados")
+p("«Tucumán Respira» es una estación de monitoreo ambiental de bajo costo "
+  "construida con un Arduino Uno R3 y un ESP32. Mide calidad del aire "
+  "(PM2.5, CO y CO₂), variables meteorológicas (temperatura, humedad y "
+  "presión), radiación UV y luz ambiental; registra la posición GPS y "
+  "publica las lecturas en Supabase. Un panel web estático muestra los "
+  "datos en vivo, el histórico, el mapa y el estado de la calidad del aire, "
+  "y permite descargar los registros y detener la alarma sonora.")
+p("El sistema se organiza en cuatro capas: adquisición (Arduino Uno), "
+  "enlace y nube (ESP32), persistencia (Supabase/PostgreSQL) y presentación "
+  "(aplicación web). El Uno envía una trama de 9 campos al ESP32 cada 3 s; "
+  "el ESP32 la publica en Supabase cada 15 s, calcula el ICA local y "
+  "gobierna un zumbador. La web lee Supabase, muestra 8 métricas con "
+  "umbrales y fuentes visibles, y para la alarma consulta al ESP32 en la "
+  "red local.")
+p("Resultados principales")
 bullets([
-    "Panel con datos en tiempo real, respaldo por sondeo cada 15 s y 8 "
-    "métricas con umbrales por estándar, cada una con su fuente visible.",
-    "Índice de calidad del aire (ICA/EPA) calculado con PM2.5 y CO.",
-    "Histórico y gráfico de tendencia; descarga pública en CSV y JSON "
-    "(últimas 100, 500, 1000 o todas las filas).",
-    "Mapa de ubicación con OpenStreetMap y marcador de la estación; usa la "
-    "última coordenada GPS válida.",
-    "Firmware del Arduino Uno: 8 sensores, GPS NMEA y trama de 9 campos hacia "
-    "el ESP32.",
-    "Firmware del ESP32: Wi-Fi (modo estación + punto de acceso de "
-    "configuración), carga a Supabase, alarma por zumbador y endpoints de "
-    "control (/status, /alarma, /silenciar).",
-    "Diseño responsive con puntos de quiebre en 1024, 640 y 400 píxeles, sin "
-    "scroll horizontal en celulares.",
+    "Panel público con datos en tiempo real, respaldo por sondeo cada 15 s, "
+    "histórico, gráficos de tendencia y mapa con OpenStreetMap.",
+    "Ocho métricas con umbrales de referencia (EPA, OSHA/NIOSH, ASHRAE, "
+    "OMS y NWS), cada una con su fuente visible.",
+    "ICA estilo EPA calculado con PM2.5 y CO; la alarma local replica el "
+    "mismo criterio (se activa con ICA > 100 y se corta al bajar de 80).",
+    "Descarga pública en CSV y JSON (últimas 100, 500, 1000 o todas las "
+    "filas), sin backend propio.",
+    "Hardware documentado: sensores, pines, pruebas individuales, "
+    "calibración, armado con cables soldados y gabinete impreso en 3D.",
+    "Red de configuración temporal: el AP se cierra al conectar y reaparece "
+    "si se pierde la red; las credenciales quedan en RAM.",
+    "Versión corregida del ESP32 compilada y cargada; se corrigieron el "
+    "orden de arranque, la red/AP y el valor por defecto de CO₂.",
+    "Panel publicado en GitHub Pages y base con más de 2.800 mediciones "
+    "reales al 28/10/2026.",
 ])
-story.append(PageBreak())
+p("El informe integra la documentación del equipo (proceso, componentes, "
+  "gabinete y roles), el detalle técnico de los firmwares y del panel, y "
+  "las correcciones aplicadas durante la puesta a punto. Los valores de "
+  "referencia son orientativos y no constituyen diagnóstico sanitario.")
 
 # ===================== 2. CONTEXTO =====================
-h1("2. Contexto y objetivos del proyecto")
-p("«Tucumán Respira» es una estación de monitoreo ambiental de bajo costo "
-  "construida con microcontroladores (Arduino Uno R3 y ESP32) y sensores de "
-  "calidad del aire y clima. Las mediciones se envían de forma periódica a "
-  "Supabase y quedan disponibles para consulta pública.")
-h2("Objetivo general")
-p("Ofrecer un sistema completo de monitoreo —desde la adquisición en campo "
-  "hasta la publicación web— que permita al público comprender el estado de "
-  "la calidad del aire y consultar los datos históricos.")
-h2("Objetivos específicos")
+h1("2. Contexto, objetivos y alcance")
+p("La calidad del aire afecta la salud respiratoria y cardiovascular. La "
+  "material particulado fino (PM2.5), el monóxido de carbono (CO) y el "
+  "dióxido de carbono (CO₂) son indicadores útiles para evaluar ambientes "
+  "interiores y exteriores. Una estación de bajo costo permite observar "
+  "tendencias, detectar episodios de ventilación deficiente y acercar los "
+  "datos a la comunidad educativa.")
+p("Objetivo general")
+p("Diseñar, construir y documentar un sistema completo de monitoreo —desde "
+  "la adquisición en campo hasta la publicación web— que permita comprender "
+  "el estado de la calidad del aire y consultar los datos históricos.")
+p("Objetivos específicos")
 bullets([
-    "Medir en forma continua variables de calidad del aire (PM2.5, CO₂, CO), "
-    "meteorológicas (temperatura, humedad, presión), radiación UV y luz "
-    "ambiental.",
-    "Registrar la ubicación geográfica (GPS) de las mediciones.",
-    "Publicar los datos en la nube y ofrecer un panel público que los muestre "
-    "de forma clara.",
-    "Avisar localmente (alarma sonora) cuando la calidad del aire supera "
-    "umbrales peligrosos, y permitir silenciar esa alarma desde la aplicación "
-    "web.",
-    "Permitir la descarga libre de los datos crudos (CSV/JSON).",
-    "Garantizar una correcta visualización en celulares y aplicar "
-    "correcciones de seguridad.",
+    "Medir PM2.5, CO, CO₂, temperatura, humedad, presión, UV y luz.",
+    "Registrar la ubicación geográfica de las mediciones con GPS.",
+    "Publicar las lecturas en la nube y ofrecer un panel público claro.",
+    "Avisar localmente con una alarma sonora y permitir silenciarla desde "
+    "la aplicación web.",
+    "Permitir la descarga libre de los datos crudos en CSV y JSON.",
+    "Documentar el hardware, el proceso de armado, el gabinete y los roles "
+    "del equipo.",
 ])
-h2("Perfil de usuarios")
+p("Alcance y límites")
+p("El informe cubre el hardware, los firmwares, la base de datos, el panel "
+  "web, las pruebas y los resultados descriptivos. No incluye calibración "
+  "de laboratorio, certificación metrológica, un estudio epidemiológico ni "
+  "una campaña prolongada en múltiples puntos. La estación es única y los "
+  "datos deben interpretarse como una referencia local.")
+p("Perfil de usuarios")
 p("Público general: docentes, estudiantes y personas técnicas o interesadas "
-  "en la calidad del aire. La interfaz prioriza la legibilidad, el lenguaje "
-  "claro y la accesibilidad desde cualquier dispositivo.")
+  "en la calidad del aire. La interfaz prioriza legibilidad, lenguaje claro "
+  "y acceso desde cualquier dispositivo.")
 
-# ===================== 3. DECISIONES =====================
-h1("3. Decisiones de diseño acordadas")
-p("Las siguientes decisiones fueron acordadas con el responsable del proyecto "
-  "antes y durante la implementación, y definen el comportamiento actual del "
-  "sistema.")
+# ===================== 3. EQUIPO =====================
+h1("3. Equipo, roles y metodología")
+p("El proyecto fue realizado por un equipo interdisciplinario. Los roles "
+  "surgen de la documentación elaborada por el propio grupo.")
 tabla([
-    ["Tema", "Decisión adoptada"],
-    ["Base de partida", "Versión simple existente del panel (se rediseñó sobre ella)."],
-    ["Tipo de proyecto", "Proyecto real, conectado a la base de datos real de la estación."],
-    ["Datos simulados", "No se muestran datos simulados. Solo se presentan mediciones reales."],
-    ["Formato de entrega", "Aplicación estática de 3 archivos (HTML + CSS + JS) más dos firmwares."],
-    ["Identidad visual", "Nombre «Tucumán Respira», tema oscuro/claro con verde esmeralda."],
-    ["Público objetivo", "General: docentes, estudiantes y técnicos."],
-    ["Prioridad", "Estado de la calidad del aire + valor de cada sensor."],
-    ["Interacción", "Clic en un sensor abre su histórico (panel modal)."],
-    ["Descarga", "Botón público, formatos CSV y JSON, últimas 100 por defecto."],
-    ["Alertas y peligro",
-     "Cada métrica tiene niveles de peligro con su fuente; el estado general "
-     "(ICA) se calcula con PM2.5 y CO."],
-    ["Fuente del umbral", "Se muestra en la interfaz la fuente de cada umbral."],
-    ["Actualización", "Tiempo real + marca de última actualización (fecha y hora + relativa)."],
-    ["Mapa", "Ubicación GPS de la estación sobre mosaicos de OpenStreetMap (sin clave)."],
-    ["Zumbador", "Ubicado y gobernado por el ESP32 (GPIO 23); la alarma la decide la propia ESP32."],
-    ["GPS", "Conectado al Arduino Uno en los pines 7 (RX) y 8 (TX) por SoftwareSerial."],
-    ["Detener alarma", "Botón directo en la app que consulta a la ESP32; la IP se obtiene sola desde Supabase."],
-    ["Base de datos", "No se cambian los campos existentes; solo se agrega «ip_dispositivo»."],
-    ["Control de versiones", "No se modificó el repositorio Git durante el desarrollo."],
-    ["Seguridad", "Se aplicaron las correcciones de seguridad indicadas."],
-], [105, 400], negrita_primera=True)
-story.append(PageBreak())
+    ["Integrante", "Rol o aporte"],
+    ["Roy Luciano Molina", "Diseño del gabinete."],
+    ["Maximo Valdez Leguina",
+     "Diseño del circuito de conexiones electrónicas."],
+    ["Candela Rojas Perassi", "Conexiones físicas del circuito."],
+    ["María Pía Olivar", "Armado y presentación del gabinete."],
+    ["Benicio Gael Pieroni",
+     "Programación de la app web, diseño de la arquitectura y puesta a "
+     "punto del proyecto; consolidación de este informe."],
+    ["Joaquín Valdecanto", "Colaboración en el proyecto."],
+    ["Tatiana Maturano", "Registro fotográfico del proceso."],
+    ["Bautista Argañaraz", "Colaboración en el proyecto."],
+    ["Jonás Barreiro",
+     "Elaboración del informe de sensores, placas y proyecto final."],
+], cols(0.28, 0.72), negrita_primera=True)
 
-# ===================== 4. ARQUITECTURA =====================
-h1("4. Arquitectura y stack tecnológico")
-p("La arquitectura es de cuatro capas con comunicación en cascada:")
+p("Metodología de trabajo")
+p("El equipo se organizó para reunirse en un mismo domicilio y trabajar en "
+  "paralelo: una mitad se dedicó al hardware y la otra al software. El "
+  "proceso se desarrolló en etapas iterativas:")
 bullets([
-    "Adquisición (Arduino Uno): lee los sensores y el GPS y envía una trama "
-    "de 9 campos por puerto serie al ESP32.",
-    "Enlace y nube (ESP32): se conecta al Wi-Fi del lugar, expone un punto de "
-    "acceso de configuración y realiza peticiones HTTPS a la API REST de "
-    "Supabase (PostgREST).",
-    "Persistencia (Supabase): base PostgreSQL con la tabla «mediciones».",
-    "Presentación (app web): aplicación estática que lee Supabase y, para la "
-    "alarma, consulta directamente al ESP32 en la red local.",
+    "Relevamiento y documentación de todos los componentes, su función y "
+    "un diagrama de conexiones.",
+    "Prueba individual de cada componente en protoboard, con códigos "
+    "separados; soldadura de pines y calibración de los sensores más "
+    "sensibles.",
+    "Registro de los componentes verificados y conservación de los códigos "
+    "individuales para concatenarlos en el producto final.",
+    "Integración del circuito y paso del protoboard a un armado con cables "
+    "soldados; ajuste progresivo hasta el montaje definitivo.",
+    "Desarrollo del código en paralelo al armado y del panel web a mitad "
+    "del proceso, hasta conectar la interfaz con los datos reales.",
+    "Diseño, medición e impresión 3D del gabinete; distribución de los "
+    "componentes, tapa, paredes y agujeros.",
+    "Puesta a punto, pruebas de integración, correcciones y documentación.",
 ])
-p("Flujo de datos: Estación (Arduino Uno → ESP32) → Supabase (PostgreSQL + "
-  "Realtime) → navegador (fetch REST + canal Realtime) → render de la "
-  "interfaz.")
-h2("Tecnologías y librerías utilizadas")
+p("Durante el armado surgieron dos problemas prácticos que quedaron "
+  "documentados: no se consiguió el adaptador para conectar el PMS5003 al "
+  "protoboard, por lo que se cortaron y soldaron los cables; y los imanes "
+  "previstos para la tapa no permitían un cierre adecuado y eran difíciles "
+  "de despegar, por lo que se reemplazaron por tornillos.")
+fig(FIG / "fig_23.jpeg",
+    "Figura 1. Equipo durante el proceso de armado y pruebas.", 15.0)
+fig(FIG / "fig_24.jpeg",
+    "Figura 2. Trabajo conjunto en el montaje y la puesta a punto.", 15.0)
+
+# ===================== 4. MARCO =====================
+h1("4. Marco de referencia: calidad del aire")
+p("Las métricas se interpretan con estándares de salud y seguridad. El "
+  "panel muestra la fuente de cada umbral y el estado general se resume con "
+  "un índice tipo ICA (Air Quality Index de la EPA).")
+bullets([
+    "PM2.5: material particulado fino (≤ 2,5 µm). Se asocia a efectos "
+    "respiratorios y cardiovasculares; se evalúa con los tramos del ICA de "
+    "la EPA (promedio de 24 h).",
+    "CO: monóxido de carbono, gas incoloro e inodoro. Se toma como "
+    "referencia el REL de NIOSH (35 ppm, 8 h) y el PEL de OSHA (50 ppm).",
+    "CO₂: dióxido de carbono. En interiores es, sobre todo, un indicador de "
+    "ventilación; los límites ocupacionales son mucho más altos que los "
+    "valores habituales.",
+    "UV: radiación ultravioleta medida por el ML8511; se expresa como "
+    "irradiancia en mW/cm².",
+    "Temperatura, humedad y presión: describen el confort y el contexto "
+    "meteorológico; la presión y la luz se muestran como referencia.",
+])
+p("El ICA se calcula con el subíndice de PM2.5 y el de CO, por "
+  "interpolación lineal, y se toma el peor de los dos. Las categorías van "
+  "de «Buena» a «Peligrosa». El detalle de los umbrales, los cambios "
+  "respecto de versiones anteriores y la tabla del ICA se presentan en la "
+  "sección 11.")
+p("Los valores son de referencia para interpretar las mediciones y no "
+  "constituyen diagnóstico sanitario. El calor real depende también de la "
+  "humedad y el viento; la OMS no fija un umbral cuantitativo de humedad, "
+  "por lo que los valores altos se rotulan como riesgo de moho.")
+
+# ===================== 5. ARQUITECTURA =====================
+h1("5. Arquitectura general y stack tecnológico")
+p("La arquitectura es de cuatro capas con comunicación en cascada:")
+tabla([
+    ["Capa", "Componente", "Función"],
+    ["Adquisición", "Arduino Uno R3",
+     "Lee los sensores y el GPS; envía una trama de 9 campos por puerto "
+     "serie al ESP32 cada 3 s."],
+    ["Enlace y nube", "ESP32",
+     "Recibe la trama, lee el PMS5003, publica en Supabase por HTTPS, "
+     "calcula el ICA local y gobierna el zumbador."],
+    ["Persistencia", "Supabase (PostgreSQL)",
+     "Almacena la tabla «mediciones» y expone la API PostgREST y Realtime."],
+    ["Presentación", "Aplicación web estática",
+     "Lee Supabase, renderiza el panel, el histórico, el mapa y las "
+     "descargas; consulta al ESP32 para silenciar la alarma."],
+], cols(0.16, 0.25, 0.59), negrita_primera=True)
+p("Flujo de datos: estación (Arduino Uno → ESP32) → Supabase (PostgreSQL + "
+  "Realtime) → navegador (fetch REST + canal Realtime) → interfaz. La alarma "
+  "sonora se decide en el ESP32; la web solo envía la orden de silencio al "
+  "dispositivo en la red local.")
+
 tabla([
     ["Recurso", "Versión / origen", "Uso en el proyecto"],
-    ["HTML5 / CSS3 / JavaScript", "Nativo", "Estructura, estilos y lógica de la aplicación."],
-    ["Lucide", "unpkg @latest (v1.56.0)", "Iconografía de la interfaz (SVG)."],
-    ["Chart.js", "CDN 4.4.1", "Gráfico de tendencia y gráficos de histórico por sensor."],
-    ["Leaflet", "CDN 1.9.4", "Mapa de ubicación de la estación."],
-    ["supabase-js", "CDN @supabase/supabase-js@2", "Cliente Realtime (suscripción a nuevas filas)."],
-    ["Supabase REST", "API PostgREST", "Lectura de mediciones y descargas."],
-    ["Arduino Uno", "ATmega328P (core avr 1.8.8)", "Lectura de sensores y GPS; trama serie."],
-    ["ESP32", "ESP32 (core 3.3.12)", "Wi-Fi + HTTPS, alarma y portal de configuración."],
+    ["HTML5 / CSS3 / JavaScript", "Nativo",
+     "Estructura, estilos y lógica del panel."],
+    ["Lucide", "unpkg @latest (v1.56.0)", "Iconografía SVG."],
+    ["Chart.js", "CDN 4.4.1", "Gráfico de tendencia e históricos."],
+    ["Leaflet", "CDN 1.9.4", "Mapa con mosaicos de OpenStreetMap."],
+    ["supabase-js", "CDN @supabase/supabase-js@2",
+     "Cliente Realtime para nuevas filas."],
+    ["Supabase REST", "API PostgREST",
+     "Lectura de mediciones y descargas."],
+    ["Arduino Uno", "ATmega328P (core AVR 1.8.8)",
+     "Adquisición de sensores y GPS; trama serie."],
+    ["ESP32", "ESP32 (core 3.3.12)",
+     "Wi-Fi/HTTPS, PMS5003, alarma y portal de configuración."],
     ["Supabase", "PostgreSQL / PostgREST", "Almacenamiento y API REST."],
-], [130, 145, 230], negrita_primera=True)
-h2("Justificación de las librerías")
-p("Se optó por librerías livianas y ampliamente utilizadas, cargadas por CDN "
-  "para mantener la aplicación en solo 3 archivos. Se descartó el uso de "
-  "frameworks CSS pesados (por ejemplo, Tailwind) y de Font Awesome, "
-  "reemplazando los íconos por Lucide (SVG) y los estilos por CSS propio, con "
-  "el objetivo de reducir el peso y mantener el control total del diseño. "
-  "Para el mapa se pasó de Carto a OpenStreetMap para no depender de una "
-  "clave de API.")
+], cols(0.23, 0.29, 0.48), negrita_primera=True)
+p("Se optó por librerías livianas cargadas por CDN para mantener la "
+  "aplicación en solo tres archivos. Se descartaron frameworks CSS pesados "
+  "y Font Awesome; los íconos se resolvieron con Lucide y los estilos con "
+  "CSS propio. El mapa pasó de Carto a OpenStreetMap para no depender de "
+  "una clave de API. El informe se genera con reportlab 4.1.0 y Pillow "
+  "10.2.0.")
 
-# ===================== 5. ESTRUCTURA =====================
-h1("5. Estructura de archivos y métricas de código")
-p("El proyecto se organiza en la aplicación web y los dos firmwares.")
+# ===================== 6. HARDWARE =====================
+h1("6. Hardware: componentes, conexiones y montaje")
+p("La estación combina sensores de calidad del aire, clima, UV y luz, un "
+  "receptor GPS, dos microcontroladores y un zumbador. La documentación del "
+  "equipo relevó cada módulo, sus conexiones y su función.")
+h2("6.1 Componentes y función")
 tabla([
-    ["Archivo", "Rol", "Líneas aprox."],
-    ["index.html", "Estructura y semántica de la interfaz; carga de librerías y de app.js.", "271"],
-    ["styles.css", "Sistema de diseño: tokens de tema, componentes y reglas responsive.", "678"],
-    ["app.js", "Configuración, datos, clasificación, gráficos, mapa, modales y descargas.", "1010"],
-    ["sketch_oct17a.ino", "Firmware del Arduino Uno (adquisición, GPS y trama serie).", "274"],
-    ["sketch_oct17b.ino", "Firmware del ESP32 (WiFi, Supabase, alarma y portal).", "841"],
-    ["Total", "—", "≈ 3.074"],
-], [95, 340, 75], negrita_primera=True)
-h2("Organización interna de app.js")
-bullets([
-    "CONFIG: parámetros centrales (URL y clave de Supabase, tabla, límites, "
-    "tiempos, coordenadas por defecto, clave del dispositivo y minutos de "
-    "silencio).",
-    "METRICS: definición de los 8 sensores, unidades, decimales, umbrales y "
-    "fuentes.",
-    "TREND_TABS y AQI_*: pestañas del gráfico de tendencia y tablas del índice "
-    "de calidad del aire.",
-    "Utilidades: formato de fecha/hora, tiempo relativo, formateo, escapado de "
-    "CSV y validación de GPS.",
-    "ICA (EPA): cálculo del subíndice y del índice global.",
-    "Render: construcción de tarjetas, banner, resumen, reloj de estado, mapa, "
-    "gráficos, modales y descargas.",
-    "Carga de datos: lectura inicial, Realtime y sondeo de respaldo; e "
-    "inicialización.",
-])
-story.append(PageBreak())
+    ["Componente", "Variable", "Interfaz / pines", "Observaciones"],
+    ["BME280 (GY-BME280)", "Temperatura, humedad y presión",
+     "I²C: SDA A4, SCL A5; dirección 0x76/0x77",
+     "El firmware usa Adafruit_BME280; la documentación del equipo lo "
+     "menciona como GY-BMP280."],
+    ["MH-Z19C", "CO₂ (ppm)",
+     "SoftwareSerial en el Uno: RX 10, TX 11",
+     "Sensor NDIR; comando de 9 bytes y respuesta 0xFF 0x86."],
+    ["MQ-7", "CO (ppm)",
+     "Analógico A0; DO opcional en D9",
+     "Calentamiento inicial de 30 s; calibración con R0."],
+    ["ML8511 (GY-8511)", "Radiación UV",
+     "Salida analógica A2",
+     "Se convierte con la referencia real del ADC del Uno (5 V)."],
+    ["LDR", "Luz ambiental (lux aprox.)",
+     "Analógico A1; DO opcional en D12",
+     "Estimación por tramos con map()."],
+    ["GPS NEO-6M (GY-GPS6MV2)", "Latitud y longitud",
+     "SoftwareSerial en el Uno: RX 7, TX 8",
+     "Sentencias GGA/GNGGA; conserva la última coordenada válida."],
+    ["PMS5003", "PM2.5 (µg/m³)",
+     "ESP32 Serial2: RX 18, TX 5, SET 4",
+     "Sensor láser con ventilador; se conecta al ESP32, no al Uno."],
+    ["Zumbador pasivo", "Alarma sonora",
+     "GPIO 23 del ESP32",
+     "Control con tone()/noTone(); 10 minutos de silencio manual."],
+    ["Arduino Uno R3 / ESP32", "Control",
+     "—",
+     "El Uno adquiere; el ESP32 enlaza con la nube y gobierna la alarma."],
+], cols(0.20, 0.20, 0.29, 0.31), small=True, negrita_primera=True)
 
-# ===================== 6. SUPABASE =====================
-h1("6. Fuente de datos: Supabase")
-p("La información proviene de un proyecto de Supabase (PostgreSQL) con la API "
-  "PostgREST habilitada. La tabla utilizada es «mediciones».")
+h2("6.2 Conexiones principales")
+tabla([
+    ["Enlace", "Desde", "Hacia", "Nota"],
+    ["Uno ↔ ESP32", "Uno D3 (TX), D2 (RX)",
+     "ESP32 GPIO 16 (RX), GPIO 17 (TX)",
+     "Trama serie de 9 campos a 9600 baudios."],
+    ["GPS", "Módulo TX/RX", "Uno D7 (RX), D8 (TX)",
+     "SoftwareSerial; NMEA GGA."],
+    ["MH-Z19C", "Módulo TX/RX", "Uno D10 (RX), D11 (TX)",
+     "SoftwareSerial; lectura cada 3 s."],
+    ["BME280", "SDA/SCL", "Uno A4/A5", "I²C; 3,3 V."],
+    ["MQ-7", "AO/DO", "Uno A0 / D9", "Lectura analógica."],
+    ["ML8511", "OUT", "Uno A2", "Referencia ADC de 5 V."],
+    ["LDR", "AO/DO", "Uno A1 / D12", "Divisor de tensión."],
+    ["PMS5003", "TX/RX/SET", "ESP32 GPIO 18 / 5 / 4",
+     "Serial2 del ESP32; 5 V."],
+    ["Zumbador", "GPIO 23", "Zumbador → GND",
+     "Alarma local."],
+], cols(0.18, 0.24, 0.28, 0.30), small=True, negrita_primera=True)
+
+h2("6.3 Pruebas, calibración y armado")
+p("Cada componente se probó por separado en el protoboard con un código "
+  "individual. Se soldaron los pines de los módulos que lo necesitaban y se "
+  "calibraron los sensores más sensibles. El equipo mantuvo una lista de "
+  "componentes verificados y conservó los códigos individuales para "
+  "integrarlos después en el firmware final.")
+p("En el armado definitivo se reemplazó el protoboard por cables soldados. "
+  "El adaptador previsto para el PMS5003 no se consiguió: se cortaron los "
+  "cables y se soldaron las puntas. El MQ-7 requiere 30 s de calentamiento "
+  "antes de empezar; el ML8511 se corrigió con la referencia de 5 V del "
+  "ADC; el BME280 se protege contra valores NaN; y el GPS conserva la "
+  "última coordenada válida si pierde el fix.")
+p("El gabinete se diseñó después de medir todos los componentes. Se planeó "
+  "la distribución interior, la posición de los imanes, la tapa, las paredes "
+  "y los agujeros para los sensores y el cableado; luego se imprimió en 3D. "
+  "Los imanes no permitían que la tapa cerrara bien y eran difíciles de "
+  "despegar, por lo que se optó por tornillos.")
+fig(FIG / "fig_14.jpeg",
+    "Figura 3. Gabinete: diseño y terminaciones.", 14.0)
+fig(FIG / "fig_12.jpeg",
+    "Figura 4. Gabinete: montaje y distribución interior.", 12.0)
+
+h2("6.4 Problemas de hardware y soluciones")
+tabla([
+    ["Problema", "Solución aplicada"],
+    ["No se consiguió el adaptador del PMS5003 para el protoboard.",
+     "Se cortaron los cables y se soldaron las puntas."],
+    ["Los imanes de la tapa no cerraban bien y no se podían despegar.",
+     "Se reemplazaron por tornillos."],
+    ["El MQ-7 necesita estabilización y calibración.",
+     "Calentamiento de 30 s y ajuste con R0; lectura analógica."],
+    ["El BME280 puede no detectarse en la dirección esperada.",
+     "El firmware prueba 0x76 y 0x77 y avisa por monitor serie."],
+    ["El GPS puede perder el fix momentáneamente.",
+     "Se conserva y reenvía la última coordenada válida."],
+], cols(0.42, 0.58), negrita_primera=True)
+
+# ===================== 7. UNO =====================
+h1("7. Firmware del Arduino Uno")
+p("El Arduino Uno (sketch_oct17a) lee los sensores ambientales, calcula la "
+  "posición GPS y envía una trama de 9 campos al ESP32 cada 3 segundos por "
+  "puerto serie a 9600 baudios.")
+tabla([
+    ["Función", "Sensor / módulo", "Pin o interfaz"],
+    ["Clima", "BME280", "I²C A4/A5 (0x76/0x77)"],
+    ["CO₂", "MH-Z19C", "SoftwareSerial 10/11"],
+    ["CO", "MQ-7", "A0 (DO D9 opcional)"],
+    ["UV", "ML8511", "A2"],
+    ["Luz", "LDR", "A1 (DO D12 opcional)"],
+    ["GPS", "NEO-6M / GY-GPS6MV2", "SoftwareSerial 7/8"],
+    ["Enlace", "ESP32", "SoftwareSerial 2/3"],
+], cols(0.20, 0.36, 0.44), negrita_primera=True)
+p("Funcionamiento")
+bullets([
+    "El GPS queda como receptor activo; para leer el CO₂ se conmuta "
+    "brevemente al puerto del MH-Z19C y se vuelve al GPS.",
+    "Se interpretan las sentencias $GPGGA y $GNGGA: se verifica la calidad "
+    "del fix y se convierten latitud/longitud de formato NMEA a grados "
+    "decimales, con el signo según N/S y E/W.",
+    "El MQ-7 espera 30 s de calentamiento. La lectura analógica se convierte "
+    "a ppm con Rs/R0 y la curva del sensor.",
+    "El ML8511 se convierte con la referencia real de 5 V del ADC: "
+    "uv = (V − 0,99) × 15 / (3,3 − 0,99); los valores negativos se llevan a 0.",
+    "El BME280 entrega temperatura, humedad y presión; los NaN se "
+    "reemplazan por 0 para no enviar valores inválidos.",
+    "El LDR se estima por tramos con map() y se envía como lux aproximados.",
+    "Cada 3 s se arma la trama de 9 campos y se envía al ESP32.",
+])
+p("Trama enviada (9 campos separados por coma):")
+code("co2,co,temperatura,humedad,presion,uv,lux,latitud,longitud\n"
+     "412,3.20,19.9,71,968,0.0,120,-26.83972,-65.29328")
+p("Si el MH-Z19C no responde, leerCO2() devuelve 0. El valor inicial de "
+  "co2Value es 0: 0 significa «sin lectura», no un valor de 400 ppm. La "
+  "última coordenada válida se conserva cuando el GPS pierde el fix; si "
+  "nunca hubo fix, se envía 0,0.")
+p("El firmware del Uno quedó separado del de la ESP32 en su propia carpeta "
+  "(sketch_oct17a). Esto evita el problema que se produjo cuando un archivo "
+  "fue reemplazado accidentalmente por el del otro microcontrolador.")
+
+# ===================== 8. ESP32 =====================
+h1("8. Firmware del ESP32")
+p("El ESP32 (sketch_oct17b) es el enlace con la nube y el controlador de la "
+  "alarma. Recibe la trama del Uno, lee el PMS5003, publica el registro en "
+  "Supabase, calcula el ICA local y gobierna el zumbador.")
+h2("8.1 Conectividad y red de configuración")
+p("La conexión se gestiona con una máquina de estados: RED_AP, "
+  "RED_CONECTANDO y RED_CONECTADA. Al arrancar, el equipo levanta una red "
+  "de configuración temporal (Tucuman-Respira-Config, contraseña "
+  "Tucuman2026, IP 192.168.4.1) con portal DNS cautivo. El usuario elige la "
+  "red desde el portal; el guardado responde «Conectando…» sin bloquear.")
+bullets([
+    "Si la conexión se establece, el AP se cierra automáticamente con "
+    "detenerAP() y el equipo queda en modo estación (STA).",
+    "Si no se conecta en 20 s, se vuelve a levantar el AP para reintentar.",
+    "Si la conexión se cae y se confirma la caída durante 5 s, se borran "
+    "las credenciales de RAM y se levanta el AP para reconfigurar.",
+    "Las credenciales no se guardan en NVS/Preferences: viven en RAM. Al "
+    "reiniciar, el equipo vuelve a arrancar en modo AP.",
+    "WiFi.persistent(false) y WiFi.setAutoReconnect(false) evitan que la "
+    "librería persista credenciales o reconecte por su cuenta; la "
+    "reconexión la decide la máquina de estados del firmware.",
+    "El orden de arranque es iniciarAP() y luego setupWebServer(), para que "
+    "lwIP esté inicializado antes de abrir sockets.",
+])
+h2("8.2 Publicación en Supabase")
+p("Cada 15 s, si hay conexión Wi-Fi, el ESP32 envía un POST HTTPS a la API "
+  "REST de Supabase con los encabezados apikey y Authorization (clave "
+  "anon). Los campos enviados son co2, co, pm25, temperatura, humedad, "
+  "presion, uv, luz, latitud, longitud e ip_dispositivo. La IP local "
+  "permite que la web descubra la estación y le envíe la orden de silencio.")
+p("El sensor de partículas PMS5003 se lee por Serial2 (RX 18, TX 5, SET 4) "
+  "y se publica como PM2.5. El ESP32 calcula el ICA local con los mismos "
+  "breakpoints que la web (PM2.5 EPA 2024 y CO con NIOSH REL/OSHA PEL).")
+h2("8.3 Alarma y endpoints")
+p("El zumbador pasivo está en GPIO 23 y se controla con tone()/noTone(). "
+  "La alarma se activa cuando el ICA supera 100 y se corta automáticamente "
+  "cuando baja de 80. El silencio manual dura 10 minutos.")
+tabla([
+    ["Ruta", "Función"],
+    ["/", "Portal de configuración (si el AP está activo)."],
+    ["/save (POST)", "Guarda SSID y contraseña; responde «Conectando…»."],
+    ["/status", "Estado de la estación: Wi-Fi, IP, ICA, alerta, silencio."],
+    ["/alarma", "Estado de la alarma y del zumbador (GET/POST/OPTIONS)."],
+    ["/silenciar?k=CLAVE", "Silencia el zumbador 10 minutos."],
+], cols(0.26, 0.74), negrita_primera=True)
+p("Todos los endpoints de control responden con CORS abierto para permitir "
+  "el uso desde la aplicación web. El endpoint /silenciar exige la clave "
+  "del dispositivo (tucu2026) y está pensado para la red local.")
+h2("8.4 Correcciones recientes")
+p("Red y AP. La versión anterior mantenía un AP permanente y guardaba las "
+  "credenciales en NVS con reconexión automática. La versión corregida usa "
+  "un AP temporal, cierra la red al conectar, la reabre si se pierde la "
+  "conexión y mantiene las credenciales solo en RAM. El guardado dejó de "
+  "bloquear el servidor y el orden de arranque se corrigió.")
+p("Reinicio en bucle al iniciar. El equipo se reiniciaba con "
+  "rst:0xc (SW_CPU_RESET) antes de imprimir el banner. La causa era abrir "
+  "sockets (setupWebServer) antes de inicializar lwIP, que se inicializa "
+  "con WiFi.mode()/Network.begin(). La corrección fue llamar a iniciarAP() "
+  "antes de setupWebServer(); la versión corregida compila, se cargó y ya "
+  "no reproduce el reinicio.")
+code("rst:0xc (SW_CPU_RESET)\n"
+     "ELF file SHA256: f6d0fd703...\n"
+     "Rebooting...")
+p("CO₂ por defecto. El firmware usaba currentCO2 = 400 como valor inicial; "
+  "si el Uno no estaba conectado, la web mostraba 400 ppm como si fuera una "
+  "medición. Ahora currentCO2 = 0 y el 0 significa «sin lectura». En el Uno "
+  "también se cambió co2Value = 0; allí el 400 inicial era código muerto "
+  "porque se sobrescribía en cada lectura. Un valor real de 400 ppm en aire "
+  "limpio es válido y no debe confundirse con el valor por defecto antiguo.")
+
+# ===================== 9. SUPABASE =====================
+h1("9. Fuente de datos: Supabase")
+p("La información proviene de un proyecto de Supabase (PostgreSQL) con la "
+  "API PostgREST habilitada. La tabla utilizada es «mediciones».")
 tabla([
     ["Campo", "Tipo", "Significado", "Unidad"],
-    ["id", "entero", "Identificador autoincremental de la fila.", "—"],
+    ["id", "entero", "Identificador autoincremental.", "—"],
     ["created_at", "timestamp", "Fecha y hora de la lectura (UTC).", "ISO-8601"],
     ["co2", "numérico", "Dióxido de carbono.", "ppm"],
     ["co", "numérico", "Monóxido de carbono.", "ppm"],
@@ -390,44 +737,136 @@ tabla([
     ["temperatura", "numérico", "Temperatura ambiente.", "°C"],
     ["humedad", "numérico", "Humedad relativa.", "%"],
     ["presion", "numérico", "Presión atmosférica.", "hPa"],
-    ["uv", "numérico", "Radiación ultravioleta (irradiancia).", "mW/cm²"],
+    ["uv", "numérico", "Radiación ultravioleta.", "mW/cm²"],
     ["luz", "numérico", "Luminosidad ambiental.", "lux"],
-    ["latitud", "numérico", "Latitud GPS de la estación.", "grados"],
-    ["longitud", "numérico", "Longitud GPS de la estación.", "grados"],
-    ["ip_dispositivo", "texto", "IP local actual del ESP32 (nueva columna).", "IPv4"],
-], [85, 70, 275, 70], negrita_primera=True)
-h2("Estado verificado de la base de datos (al 18/10/2026)")
+    ["latitud", "numérico", "Latitud GPS.", "grados"],
+    ["longitud", "numérico", "Longitud GPS.", "grados"],
+    ["ip_dispositivo", "texto", "IP local actual del ESP32.", "IPv4"],
+], cols(0.19, 0.14, 0.49, 0.18), small=True, negrita_primera=True)
+
+p("Estado verificado al 28/10/2026 (snapshot; el conteo es dinámico)")
 tabla([
     ["Métrica", "Valor"],
-    ["Filas totales", "1.284"],
+    ["Filas totales", "2.836"],
     ["Primera lectura", "05/10/2026 00:45:18 UTC"],
-    ["Última lectura", "18/10/2026 15:50:53 UTC"],
-    ["Lecturas con coordenadas", "533"],
-    ["Lecturas sin coordenadas (firmware previo sin GPS)", "751"],
-    ["Lecturas con «ip_dispositivo»", "117 (desde que se activó la publicación de la IP)"],
-], [330, 175], negrita_primera=True)
-p("La columna «ip_dispositivo» permite que la aplicación descubra sola la "
-  "dirección de la estación en la red local y, con ella, detener el zumbador "
-  "sin que el usuario tenga que escribir ninguna IP.")
-story.append(PageBreak())
+    ["Última lectura", "29/10/2026 01:29:46 UTC (28/10, 22:29 en UTC−3)"],
+    ["Lecturas con coordenadas", "1.867 (65,8 %)"],
+    ["Lecturas con ip_dispositivo", "1.630 (57,5 %)"],
+    ["Filas con co2=400 y temperatura=0", "101 (3,6 %)"],
+], cols(0.55, 0.45), negrita_primera=True)
+p("La columna ip_dispositivo permite que la aplicación descubra sola la "
+  "dirección de la estación en la red local y, con ella, detener el "
+  "zumbador. La API Realtime permite que el panel reciba nuevas filas sin "
+  "recargar la página; el sondeo cada 15 s funciona como respaldo.")
+p("Calidad de datos")
+bullets([
+    "Las 101 filas con co2=400 y temperatura=0 provienen del valor por "
+    "defecto antiguo, cuando el ESP32 publicaba sin datos frescos del Uno. "
+    "No se eliminaron de la base; se conservan como registro histórico.",
+    "Las primeras mediciones no tenían GPS; la cobertura de coordenadas fue "
+    "mejorando con el firmware que conserva la última posición válida.",
+    "La cobertura de ip_dispositivo es parcial porque la columna se agregó "
+    "después de las primeras campañas.",
+    "Un CO₂ de 400 ppm en aire limpio es un valor real; el problema era el "
+    "400 usado como valor inicial cuando no había lectura.",
+])
+p("Ejemplo de la última fila (id 2838): CO₂ 400 ppm; CO 16,36 ppm; PM2.5 "
+  "40 µg/m³; temperatura 25,4 °C; humedad 64 %; presión 969 hPa; UV "
+  "0,5 mW/cm²; luz 11 lux; latitud −26,83979; longitud −65,29345; IP "
+  "192.168.18.47.")
 
-# ===================== 7. UMBRALES =====================
-h1("7. Métricas y umbrales de referencia")
-p("Cada sensor se clasifica según rangos de referencia tomados de fuentes "
-  "reconocidas de salud y seguridad. Todas las métricas cuentan con niveles "
-  "que llegan a «peligro», cada uno con su fuente visible en la interfaz. El "
-  "estado general (índice de calidad del aire) se calcula con PM2.5 y CO; el "
-  "resto de las métricas marcan su propio nivel de alerta en su tarjeta.")
+# ===================== 10. PANEL =====================
+h1("10. Panel web")
+p("La aplicación es estática (HTML + CSS + JavaScript) y se publica en "
+  "GitHub Pages. Lee Supabase por REST y Realtime y no tiene backend "
+  "propio. El panel está disponible en "
+  "https://benicio54.github.io/Tucuman-respira/.")
+h2("10.1 Encabezado y estado de conexión")
+bullets([
+    "Barra superior fija con la identidad «Tucumán Respira»; el logo "
+    "recarga la página.",
+    "Insignia de conexión con color y tiempo relativo: en vivo, retraso o "
+    "sin conexión.",
+    "Última actualización con fecha y hora completas.",
+    "Botones de descarga, cambio de tema, información y enlace a GitHub.",
+])
+h2("10.2 Banner de calidad del aire y tarjetas")
+bullets([
+    "Número ICA grande, categoría, descripción, recomendación sanitaria e "
+    "indicador de la alerta del equipo.",
+    "Ocho tarjetas (CO₂, CO, PM2.5, temperatura, humedad, presión, UV y "
+    "luz) con valor, unidad, etiqueta y barra de nivel.",
+    "Las tarjetas se resaltan cuando alcanzan un nivel peligroso; al tocar "
+    "una se abre su histórico.",
+])
+h2("10.3 Resumen, tendencia e histórico")
+bullets([
+    "Mín./máx. de temperatura, pico de PM2.5, promedio de CO₂ y humedad de "
+    "las últimas 100 lecturas.",
+    "Pestañas Aire (PM2.5 y CO), Clima (temperatura y humedad), Gases "
+    "(CO₂ y CO) y Luz/UV.",
+    "El modal de histórico muestra actual, mín., promedio y máx., permite "
+    "elegir 20/50/100 puntos y construye el gráfico con el modal abierto "
+    "para evitar gráficos colapsados.",
+])
+h2("10.4 Mapa, descargas y alarma")
+bullets([
+    "Mapa Leaflet con OpenStreetMap, marcador de la estación y enlace a "
+    "Google Maps; usa la última coordenada válida si la lectura reciente "
+    "no tiene GPS.",
+    "Descarga CSV (BOM UTF-8, separador «;») y JSON; rangos de 100, 500, "
+    "1000 o todas las filas, con paginación para el conjunto completo.",
+    "El botón «Detener zumbador» obtiene la IP desde ip_dispositivo "
+    "(fallback 192.168.4.1) y llama a /silenciar?k=tucu2026; el silencio "
+    "dura 10 minutos.",
+    "Tema claro/oscuro persistente; gráficos y mapa se recolorean al "
+    "cambiar.",
+])
+h2("10.5 Estados y comportamiento offline")
+tabla([
+    ["Situación", "Comportamiento de la interfaz"],
+    ["Cargando", "Tarjetas «esqueleto» animadas; indicador «Conectando…»."],
+    ["En vivo (≤ 120 s)", "Indicador verde con pulso; «En vivo · hace X»."],
+    ["Retraso (≤ 300 s)", "Indicador ámbar; «Retraso · hace X»."],
+    ["Sin conexión (> 300 s)", "Indicador rojo; aviso con la última lectura."],
+    ["Sin datos", "Valores «--» y etiqueta «Sin datos»; ICA «--»."],
+    ["Campo nulo", "Se muestra «--» solo en esa métrica."],
+    ["Sin GPS", "Última coordenada válida o mapa centrado por defecto."],
+], cols(0.28, 0.72), negrita_primera=True)
+p("Un watchdog actualiza el estado cada segundo y recalcula el tiempo "
+  "transcurrido, de modo que el mensaje refleja la realidad aunque no "
+  "lleguen datos nuevos.")
+h2("10.6 Responsive y seguridad")
+tabla([
+    ["Ancho", "Cambios principales"],
+    ["≤ 1024 px", "Banner y resumen en una columna; sensores en 2 columnas; "
+                  "tendencia y mapa apilados."],
+    ["≤ 640 px", "Marca compacta; insignia a ancho completo; una columna; "
+                 "tipografías y paddings reducidos; gráficos de 240–260 px."],
+    ["≤ 400 px", "Botones, tipografías y pestañas más compactos."],
+], cols(0.16, 0.84), negrita_primera=True)
+p("La clave de Supabase es pública (anon) y de solo lectura; nunca se "
+  "expone la clave de servicio. Las consultas son GET y los datos son "
+  "públicos. La descarga se arma en el navegador, sin backend. El endpoint "
+  "/silenciar exige la clave del dispositivo y está pensado para la red "
+  "local. No se almacenan credenciales de usuario ni datos personales.")
+
+# ===================== 11. UMBRALES =====================
+h1("11. Métricas, umbrales e ICA")
+p("Cada sensor se clasifica con rangos de referencia de fuentes "
+  "reconocidas. Todas las métricas tienen niveles que llegan a «peligro», "
+  "con la fuente visible en la interfaz. El estado general se calcula con "
+  "PM2.5 y CO; las demás métricas marcan su propia alerta.")
 tabla([
     ["Métrica", "Unidad", "Umbrales y etiquetas", "Fuente"],
     ["CO₂", "ppm",
      "Bueno ≤800 · Aceptable ≤1000 · Ventilación pobre ≤1500 · Alta (PEL 8 h) "
      "≤5000 · Muy alta (STEL) ≤30000 · Peligro >30000",
-     "OSHA/NIOSH · ASHRAE (ventilación)"],
+     "OSHA/NIOSH · ASHRAE"],
     ["CO (ICA)", "ppm",
-     "Bueno ≤4,4 · Moderado ≤34,9 · Dañino ≤50 · Muy dañino ≤100 · Peligroso "
-     "≤200 · Extremo >200",
-     "NIOSH REL (35 ppm) · OSHA PEL (50 ppm)"],
+     "Bueno ≤4,4 · Moderado ≤34,9 · Dañino ≤50 · Muy dañino ≤100 · "
+     "Peligroso ≤200 · Extremo >200",
+     "NIOSH REL 35 ppm · OSHA PEL 50 ppm"],
     ["PM2.5 (ICA)", "µg/m³",
      "Bueno ≤9,0 · Moderado ≤35,4 · Grupos sensibles ≤55,4 · Dañino ≤125,4 · "
      "Muy dañino ≤225,4 · Peligroso >225,4",
@@ -435,553 +874,370 @@ tabla([
     ["Temperatura", "°C",
      "Hipotermia ≤0 · Frío ≤10 · Confortable ≤27 · Precaución por calor ≤32 · "
      "Extrema precaución ≤39 · Peligro ≤52 · Peligro extremo >52",
-     "NWS/OSHA (calor) · NIOSH (frío)"],
+     "NWS/OSHA · NIOSH"],
     ["Humedad", "%",
      "Muy seco ≤20 · Seco ≤30 · Ideal ≤60 · Algo húmedo ≤70 · Riesgo de moho "
      "≤85 · Alto riesgo de moho >85",
-     "OMS (humedad y moho) · ASHRAE"],
+     "OMS · ASHRAE"],
     ["Presión", "hPa", "Baja ≤1004,9 · Normal ≤1020 · Alta >1020",
-     "Informativo (sin umbral de salud)"],
+     "Informativo"],
     ["UV", "mW/cm²", "Bajo ≤1 · Moderado ≤3 · Alto ≤6 · Muy alto ≤10 · "
-     "Extremo >10", "Sensor ML8511 (irradiancia)"],
-    ["Luz", "lux", "Oscuridad ≤9,9 · Penumbra ≤99,9 · Interior ≤499 · Pleno "
-     "sol >499", "Informativo (sin umbral de salud)"],
-], [75, 45, 275, 110], negrita_primera=True)
-h2("Notas")
-bullets([
-    "Los valores son de referencia para interpretar las mediciones y no "
-    "constituyen diagnóstico sanitario.",
-    "El calor y el frío se evalúan por temperatura seca; el índice de calor "
-    "real depende además de la humedad y el viento.",
-    "La OMS no fija un umbral cuantitativo de humedad: los niveles altos "
-    "indican riesgo de moho, no peligro agudo.",
-    "Presión y luz se muestran como referencia: no existe un umbral de peligro "
-    "para la salud humana en esos rangos.",
-    "El CO₂ alto es peligroso solo en niveles ocupacionales (OSHA/NIOSH); en "
-    "interiores es ante todo un indicador de ventilación.",
-    "El CO se clasifica con el límite de referencia de 35 ppm (REL de NIOSH, "
-    "8 h); su nivel «dañino» comienza en ese valor.",
-    "El estado general (ICA) se calcula con PM2.5 y CO; cada métrica, además, "
-    "marca su propia alerta en la tarjeta.",
-])
-story.append(PageBreak())
+                     "Extremo >10", "Sensor ML8511"],
+    ["Luz", "lux", "Oscuridad ≤9,9 · Penumbra ≤99,9 · Interior ≤499 · "
+                   "Pleno sol >499", "Informativo"],
+], cols(0.14, 0.09, 0.54, 0.23), small=True, negrita_primera=True)
 
-# ===================== 8. CAMBIOS =====================
-h1("8. Cambios de umbrales realistas (antes / después)")
-p("Como parte del proyecto se revisaron y recalibraron los umbrales de todas "
-  "las métricas contra fuentes de salud y seguridad pública, se corrigieron "
-  "las etiquetas que sugerían una norma inexistente y se fijó la fuente "
-  "visible de cada umbral. El objetivo fue que cada sensor clasifique con "
-  "niveles de peligro realistas y honestos, sin rangos inventados.")
-h2("3.1 Valores que cambiaron")
+h2("11.1 Cambios respecto de versiones anteriores")
 tabla([
-    ["Métrica", "Antes", "Ahora", "Fuente"],
-    ["CO₂",
-     "Bueno ≤800 · Aceptable ≤1000 · Ventilar ≤2000 · Muy alto ≤5000 · Riesgo "
-     ">5000 (fuente «ASHRAE»).",
+    ["Métrica", "Antes", "Ahora"],
+    ["CO₂", "Bueno ≤800 · Aceptable ≤1000 · Ventilar ≤2000 · Muy alto ≤5000 · "
+            "Riesgo >5000",
      "Bueno ≤800 · Aceptable ≤1000 · Ventilación pobre ≤1500 · Alta (PEL 8 h) "
-     "≤5000 · Muy alta (STEL) ≤30000 · Peligro >30000.",
-     "OSHA/NIOSH · ASHRAE"],
-    ["CO (ICA)",
-     "Bueno ≤4,4 · Moderado ≤9,4 · Grupos sensibles ≤12,4 · Dañino ≤15,4 · Muy "
-     "dañino ≤30,4 · Peligroso ≤50,4 · Extremo >50,4 (fuente «EPA AQI 8 h»).",
-     "Bueno ≤4,4 · Moderado ≤34,9 · Dañino ≤50 · Muy dañino ≤100 · Peligroso "
-     "≤200 · Extremo >200.",
-     "NIOSH REL (35 ppm) · OSHA PEL (50 ppm)"],
-    ["Temperatura",
-     "Frío ≤16,9 · Fresco ≤19,9 · Confortable ≤26 · Cálido ≤29,9 · Extremo "
-     ">29,9 (fuente «ASHRAE 55»).",
+     "≤5000 · Muy alta (STEL) ≤30000 · Peligro >30000"],
+    ["CO (ICA)", "Bueno ≤4,4 · Moderado ≤9,4 · Grupos sensibles ≤12,4 · "
+                 "Dañino ≤15,4 · Muy dañino ≤30,4 · Peligroso ≤50,4",
+     "Bueno ≤4,4 · Moderado ≤34,9 · Dañino ≤50 · Muy dañino ≤100 · "
+     "Peligroso ≤200 · Extremo >200"],
+    ["Temperatura", "Frío ≤16,9 · Fresco ≤19,9 · Confortable ≤26 · "
+                    "Cálido ≤29,9 · Extremo >29,9",
      "Hipotermia ≤0 · Frío ≤10 · Confortable ≤27 · Precaución por calor ≤32 · "
-     "Extrema precaución ≤39 · Peligro ≤52 · Peligro extremo >52.",
-     "NWS/OSHA (calor) · NIOSH (frío)"],
-    ["Humedad",
-     "Seco ≤29,9 · Ideal ≤60 · Húmedo >60 (fuente «ASHRAE 62.1»).",
+     "Extrema precaución ≤39 · Peligro ≤52 · Peligro extremo >52"],
+    ["Humedad", "Seco ≤29,9 · Ideal ≤60 · Húmedo >60",
      "Muy seco ≤20 · Seco ≤30 · Ideal ≤60 · Algo húmedo ≤70 · Riesgo de moho "
-     "≤85 · Alto riesgo de moho >85.",
-     "OMS (humedad y moho) · ASHRAE"],
-], [70, 150, 165, 115], negrita_primera=True)
-p("Frente a su norma, PM2.5 (EPA AQI 2024) no cambió. El UV dejó de "
-  "expresarse como índice adimensional y ahora se muestra como irradiancia en "
-  "mW/cm² (lectura cruda del ML8511), corregida con la referencia real del ADC "
-  "del Uno (5 V). En el CO se elevó el umbral de «dañino» de 15,4 a 35 ppm "
-  "(REL de NIOSH, 8 h) para que la alarma no se dispare con valores bajos ni "
-  "en ausencia de riesgo real. Se activó el resaltado de alerta para CO₂, "
-  "temperatura y humedad, de modo que cuando alcanzan un nivel marcado en rojo "
-  "su tarjeta se destaca. Presión y luz quedaron como referencia, porque no "
-  "tienen umbral de peligro real.")
-h2("3.2 Texto del panel «Acerca del sistema» (index.html)")
-p("El texto anterior decía que solo PM2.5, CO y UV generaban alertas y "
-  "mencionaba el UV como parte del estado general, lo que no era exacto. Se "
-  "reemplazó por:")
-quote("El estado general (índice de calidad del aire) se calcula con PM2.5 "
-      "(EPA) y CO, tomando para el CO el umbral de referencia de 35 ppm (NIOSH "
-      "REL) y 50 ppm (OSHA PEL). Los demás parámetros usan umbrales propios "
-      "basados en fuentes de salud pública (OSHA/NIOSH, OMS y NWS) para "
-      "indicar su nivel; cuando alcanzan un valor dañino, su tarjeta se "
-      "resalta como alerta.")
-h2("3.3 Criterio de umbrales y fuentes")
-tabla([
-    ["Métrica", "Fuente y criterio"],
-    ["PM2.5 (ICA)", "EPA AQI 2024. Valores oficiales de subíndice (24 h)."],
-    ["CO (ICA)",
-     "NIOSH REL (35 ppm, 8 h) y OSHA PEL (50 ppm). El umbral de «dañino» del "
-     "CO se fija en 35 ppm."],
-    ["UV", "Sensor ML8511 (GY-8511). Irradiancia en mW/cm². Bajo, Moderado, "
-     "Alto, Muy alto, Extremo."],
-    ["CO₂", "OSHA/NIOSH (PEL 5000 ppm 8 h; STEL 30000 ppm; IDLH 40000 ppm) y "
-     "ASHRAE como referencia de ventilación."],
-    ["Temperatura", "NWS/OSHA (estrés por calor) y NIOSH (estrés por frío), "
-     "sobre temperatura seca."],
-    ["Humedad", "OMS (humedad y moho) y ASHRAE (recomendación 30–60 %). Los "
-     "niveles altos indican riesgo de moho."],
-    ["Presión / Luz", "Referencia. No existe un umbral de peligro para la "
-     "salud en esos rangos."],
-], [110, 395], negrita_primera=True)
-h2("3.4 Aclaraciones honestas")
-bullets([
-    "El calor real depende también de la humedad y el viento (índice de "
-    "calor); aquí se evalúa por temperatura seca.",
-    "La OMS no fija un umbral cuantitativo de humedad; por eso los valores "
-    "altos se rotulan como «riesgo de moho».",
-    "El CO₂ solo es tóxico en concentraciones ocupacionales; en interiores es, "
-    "sobre todo, un indicador de ventilación.",
-    "El índice ICA de la EPA se basa en promedios (PM2.5 24 h, CO 8 h); la app "
-    "usa la lectura del momento, tal como se acordó.",
-    "Para el CO se adopta el límite de referencia de NIOSH (35 ppm, 8 h): por "
-    "debajo de ese valor el CO no se marca como «dañino».",
-    "Presión y luz se dejan como referencia para no inventar un peligro que la "
-    "ciencia no respalda.",
-])
-story.append(PageBreak())
-
-# ===================== 9. ICA =====================
-h1("9. Índice de Calidad del Aire (ICA / EPA)")
-p("El estado general de la calidad del aire se resume con un índice estilo "
-  "ICA (Air Quality Index de la EPA). Se calcula el subíndice de PM2.5 y el de "
-  "CO y se toma el peor de los dos como índice global del momento. La alarma "
-  "sonora del ESP32 replica este cálculo.")
+     "≤85 · Alto riesgo de moho >85"],
+], cols(0.14, 0.40, 0.46), small=True, negrita_primera=True)
+p("PM2.5 no cambió frente a la norma EPA AQI 2024. El UV dejó de expresarse "
+  "como índice adimensional y ahora se muestra como irradiancia en mW/cm² "
+  "(lectura cruda del ML8511, corregida con la referencia de 5 V del ADC). "
+  "En CO se elevó el umbral de «dañino» de 15,4 a 35 ppm (NIOSH REL, 8 h) "
+  "para que la alarma no se dispare con valores bajos. Se activó el "
+  "resaltado de alerta para CO₂, temperatura y humedad. Presión y luz "
+  "quedaron como referencia porque no tienen un umbral de peligro real.")
+h2("11.2 Índice de Calidad del Aire (ICA)")
 tabla([
     ["Rango ICA", "Categoría", "Descripción"],
-    ["0 – 50", "Buena",
-     "La calidad del aire es satisfactoria y el riesgo para la salud es bajo."],
-    ["51 – 100", "Moderada",
-     "Calidad aceptable; personas muy sensibles podrían notar molestias leves."],
+    ["0 – 50", "Buena", "Calidad satisfactoria; riesgo bajo."],
+    ["51 – 100", "Moderada", "Aceptable; personas muy sensibles podrían "
+                              "notar molestias leves."],
     ["101 – 150", "Dañina para grupos sensibles",
-     "Los grupos sensibles pueden experimentar efectos en la salud."],
-    ["151 – 200", "Dañina", "Todos pueden comenzar a sentir efectos en la salud."],
-    ["201 – 300", "Muy dañina", "Riesgo para la salud de toda la población."],
+     "Los grupos sensibles pueden experimentar efectos."],
+    ["151 – 200", "Dañina", "Todos pueden comenzar a sentir efectos."],
+    ["201 – 300", "Muy dañina", "Riesgo para toda la población."],
     ["301 – 500", "Peligrosa", "Condiciones de emergencia sanitaria."],
-], [90, 150, 265], negrita_primera=True)
-p("Además del número y la categoría, el panel muestra la descripción, una "
-  "recomendación sanitaria acorde y un indicador del estado de la alerta del "
-  "equipo (NORMAL, PRECAUCIÓN, ALERTA o ALERTA CRÍTICA).")
-h2("Interpolación lineal")
-p("El subíndice se obtiene por interpolación lineal dentro del rango "
-  "correspondiente (por ejemplo, para PM2.5 con concentración 12 µg/m³ "
-  "corresponde al tramo 9,1–35,4 → subíndice 51–100). El método replica el "
-  "empleado por la EPA. La alarma sonora se activa cuando el ICA supera 100 y "
-  "se corta automáticamente cuando baja de 80.")
-p("En el caso del CO, el subíndice supera 100 recién a partir de 35 ppm (REL "
-  "de NIOSH, 8 h); por debajo de ese valor el CO no activa la alarma por sí "
-  "solo. El resto de la escala del CO se extiende hacia arriba (peligroso "
-  ">200 ppm) siguiendo el mismo criterio de referencia.")
-
-# ===================== 10. FUNCIONALIDADES =====================
-h1("10. Funcionalidades del panel web")
-h2("10.1 Encabezado y estado de conexión")
+], cols(0.16, 0.30, 0.54), negrita_primera=True)
+p("El subíndice se obtiene por interpolación lineal dentro del tramo. Por "
+  "ejemplo, PM2.5 = 12 µg/m³ cae en 9,1–35,4 → subíndice 51–100. El índice "
+  "global es el peor de PM2.5 y CO. La alarma se activa con ICA > 100 y se "
+  "corta al bajar de 80. En CO, el subíndice supera 100 recién a partir de "
+  "35 ppm; por debajo de ese valor el CO no activa la alarma por sí solo.")
+p("Notas")
 bullets([
-    "Barra superior fija («sticky») con la identidad «Tucumán Respira»; el "
-    "logo recarga la página.",
-    "Insignia de conexión con indicador de color: en vivo, retraso o sin "
-    "conexión, con tiempo relativo.",
-    "Marca de última actualización con fecha y hora completas (dd/mm/aaaa "
-    "hh:mm:ss).",
-    "Botones de acción: descargar, cambiar tema, información y enlace a GitHub.",
-])
-h2("10.2 Banner de calidad del aire y tarjetas de sensores")
-bullets([
-    "Número ICA grande, categoría, descripción, recomendación sanitaria e "
-    "indicador de la alerta del equipo.",
-    "Ocho tarjetas (CO₂, CO, PM2.5, temperatura, humedad, presión, UV y luz) "
-    "con valor, unidad, etiqueta de clasificación y barra de nivel; se "
-    "resaltan en nivel peligroso.",
-    "Al tocar una tarjeta se abre su histórico.",
-])
-h2("10.3 Resumen reciente y gráfico de tendencia")
-bullets([
-    "Mín./máx. de temperatura, pico de PM2.5, promedio de CO₂ y de humedad de "
-    "las últimas 100 lecturas.",
-    "Pestañas Aire (PM2.5 y CO), Clima (temperatura y humedad), Gases (CO₂ y "
-    "CO) y Luz/UV.",
-])
-h2("10.4 Histórico por sensor (modal)")
-bullets([
-    "Estadísticas (actual, mín., promedio, máx.), selector de 20/50/100 puntos "
-    "y gráfico del sensor.",
-    "Se construye con el modal ya abierto y se redimensiona para evitar "
-    "gráficos colapsados.",
-])
-h2("10.5 Mapa de ubicación")
-bullets([
-    "Mapa construido con Leaflet y mosaicos de OpenStreetMap (sin clave de "
-    "API), con marcador de la estación.",
-    "Muestra la insignia «Ubicación por GPS» y las coordenadas; si la lectura "
-    "más reciente no tiene posición válida, se usa la última coordenada GPS "
-    "válida y se indica «Última ubicación conocida».",
-    "Incluye un enlace «Ver en Google Maps» cuando hay coordenadas y recalcula "
-    "su tamaño al girar el dispositivo.",
-])
-h2("10.6 Descarga pública de datos")
-bullets([
-    "Formatos CSV (planilla) y JSON (datos crudos); rangos: últimas 100 (por "
-    "defecto), 500, 1000 o todas.",
-    "La descarga de «todas» usa paginación por rangos para traer el conjunto "
-    "completo.",
-])
-h2("10.7 Control del zumbador desde la app")
-bullets([
-    "Botón «Detener zumbador» en el panel de alerta.",
-    "La aplicación obtiene la IP de la estación automáticamente desde el "
-    "último registro de Supabase (campo «ip_dispositivo»); si aún no hay "
-    "ninguno, usa 192.168.4.1 (punto de acceso de la ESP32).",
-    "El botón envía la orden al endpoint /silenciar del ESP32; la respuesta "
-    "indica los minutos de silencio.",
-])
-h2("10.7b Tema y detalles")
-bullets([
-    "Tema claro/oscuro persistente en el navegador; gráficos y mapa se "
-    "recolorean al cambiar.",
-    "Aviso automático de estación desconectada, descartable, y actualización "
-    "Realtime + sondeo cada 15 s.",
-])
-story.append(PageBreak())
-
-# ===================== 11. ESTADOS OFFLINE =====================
-h1("11. Estados del sistema y comportamiento «offline»")
-p("La aplicación contempla y comunica con claridad los distintos estados de "
-  "los datos, un aspecto clave cuando la estación no transmite.")
-tabla([
-    ["Situación", "Comportamiento de la interfaz"],
-    ["Cargando", "Tarjetas «esqueleto» animadas; indicador «Conectando…»."],
-    ["En vivo (≤120 s)", "Indicador verde con pulso; texto «En vivo · hace X»."],
-    ["Retraso (≤300 s)", "Indicador ámbar; texto «Retraso · hace X»."],
-    ["Sin conexión (>300 s)", "Indicador rojo; aviso con la fecha y hora de la última lectura."],
-    ["Sin datos", "Valores «--» y etiqueta «Sin datos»; ICA mostrado como «--»."],
-    ["Campo puntual nulo", "Se muestra «--» solo en esa métrica, sin afectar al resto."],
-    ["Sin GPS", "Se usa la última coordenada válida; si no hay ninguna, el mapa se centra por defecto."],
-], [150, 355], negrita_primera=True)
-p("Un vigilante («watchdog») actualiza el estado cada segundo y recalcula el "
-  "tiempo transcurrido respecto de la última lectura, de modo que el mensaje "
-  "siempre refleja la realidad, incluso si no llegan datos nuevos.")
-
-# ===================== 12. RESPONSIVE =====================
-h1("12. Adaptación responsive (móviles y tablets)")
-tabla([
-    ["Ancho", "Cambios principales"],
-    ["≤ 1024 px", "El banner y el resumen pasan a una columna; sensores en 2 "
-     "columnas; tendencia y mapa se apilan."],
-    ["≤ 640 px", "Marca compacta; insignia de conexión a ancho completo; una "
-     "columna de sensores; tipografías y paddings reducidos; gráficos y mapa "
-     "de 240–260 px; campos de descarga en una columna; modales con menos "
-     "margen."],
-    ["≤ 400 px", "Botones, tipografías y pestañas aún más compactos."],
-], [75, 430], negrita_primera=True)
-bullets([
-    "El gráfico del histórico se construye con el modal ya abierto para evitar "
-    "gráficos colapsados.",
-    "El mapa recalcula su tamaño al girar el dispositivo o redimensionar la "
-    "ventana.",
-    "El aviso «offline» se envuelve en un contenedor con el ancho y los "
-    "márgenes del resto; no desborda.",
-    "El modal de descarga usa columnas minmax(0,1fr) y min-width:0 para no "
-    "desbordar al abrir los desplegables.",
-])
-story.append(PageBreak())
-
-# ===================== 13. SEGURIDAD =====================
-h1("13. Seguridad")
-p("La aplicación es de solo lectura sobre los datos públicos y aplica "
-  "correcciones de seguridad en el cliente y en el dispositivo.")
-bullets([
-    "La clave de Supabase usada es pública (anon) y de solo lectura; nunca se "
-    "expone la clave de servicio.",
-    "Todas las consultas a Supabase son de lectura (GET) y los datos son "
-    "públicos.",
-    "El botón de descarga arma el archivo en el navegador, sin backend propio.",
-    "El endpoint «/silenciar» del ESP32 exige una clave compartida (deviceKey) "
-    "y solo acepta peticiones desde la red local.",
-    "No se almacenan credenciales de usuario ni se envían datos personales.",
+    "Los valores son de referencia y no constituyen diagnóstico sanitario.",
+    "El calor real depende de la humedad y el viento; aquí se evalúa por "
+    "temperatura seca.",
+    "La OMS no fija un umbral cuantitativo de humedad; los valores altos "
+    "indican riesgo de moho.",
+    "El CO₂ alto es peligroso en niveles ocupacionales; en interiores es "
+    "ante todo un indicador de ventilación.",
+    "Presión y luz se muestran como referencia: no existe un umbral de "
+    "peligro para la salud en esos rangos.",
 ])
 
-# ===================== 14. FIRMWARE UNO =====================
-h1("14. Firmware del Arduino Uno (adquisición y GPS)")
-p("El Arduino Uno (sketch_oct17a) lee los sensores ambientales, calcula la "
-  "posición GPS y envía una trama de 9 campos al ESP32 cada 3 segundos por "
-  "puerto serie a 9600 baudios.")
-h2("Sensores y pines")
-tabla([
-    ["Sensor", "Variable", "Conexión"],
-    ["PMS5003 (partículas)", "PM2.5 (µg/m³)", "SoftwareSerial RX=2, TX=3 (hacia el ESP32)"],
-    ["DHT/BME280 (clima)", "Temperatura, humedad, presión", "I²C (A4/A5)"],
-    ["MH-Z19C", "CO₂ (ppm)", "SoftwareSerial RX=10, TX=11"],
-    ["MQ-7", "Monóxido de carbono (CO)", "Analógico A0"],
-    ["ML8511 (GY-8511)", "Radiación UV", "Analógico A2"],
-    ["LDR", "Luz ambiental (lux aprox.)", "Analógico A1 · digital D12"],
-    ["GPS NEO-6M (GY-GPS6MV2)", "Latitud y longitud", "SoftwareSerial RX=7, TX=8"],
-], [150, 170, 185], negrita_primera=True)
-h2("Funcionamiento")
-bullets([
-    "El GPS se deja como receptor activo por defecto (gpsSerial.listen()); se "
-    "conmuta brevemente al puerto del sensor de CO₂ para leerlo y se vuelve al "
-    "GPS.",
-    "Se interpretan las sentencias $GPGGA y $GNGGA: se verifica la calidad del "
-    "fix y se convierten latitud/longitud de formato NMEA (ggmm.mmmm) a grados "
-    "decimales, aplicando el signo según N/S y E/W.",
-    "El MQ-7 requiere un calentamiento inicial; el sistema espera 30 segundos "
-    "antes de empezar.",
-    "El ML8511 se convierte con la referencia real del ADC del Uno (5 V, no "
-    "3,3 V), de modo que la irradiancia UV deja de recortarse a cero.",
-    "Las lecturas del BME280 se protegen contra valores inválidos (NaN).",
-    "Cada 3 segundos se envía al ESP32 una trama de 9 campos.",
-])
-h2("Conservación de la última coordenada válida")
-p("Si el GPS pierde el fix momentáneamente, el firmware no envía (0,0): "
-  "conserva la última posición válida y la reutiliza hasta recuperar la señal. "
-  "Esto evita filas sin coordenadas originadas por cortes transitorios del "
-  "GPS.")
-story.append(PageBreak())
-
-# ===================== 15. FIRMWARE ESP32 =====================
-h1("15. Firmware del ESP32 (WiFi, Supabase y alarma)")
-p("El ESP32 es el enlace con la nube y el controlador de la alarma. Recibe la "
-  "trama del Arduino Uno, arma el registro y lo publica en Supabase; además, "
-  "mide el ICA (con PM2.5 y CO) y gobierna el zumbador.")
-h2("Conectividad")
-bullets([
-    "Conexión al Wi-Fi del lugar en modo estación (STA), con reconexión "
-    "automática.",
-    "Punto de acceso permanente Tucuman-Respira-Config (contraseña Tucuman2026, "
-    "IP 192.168.4.1) con portal DNS cautivo, para configurar la red sin "
-    "flashear.",
-    "Las credenciales se guardan en memoria no volátil (NVS) con Preferences.",
-])
-h2("Publicación en Supabase")
-bullets([
-    "Petición HTTPS POST a la API REST de Supabase con encabezados apikey y "
-    "Authorization (clave anon).",
-    "Campos enviados: co2, co, pm25, temperatura, humedad, presion, uv, luz, "
-    "latitud, longitud e ip_dispositivo (IP local del ESP32, para el "
-    "descubrimiento automático desde la app).",
-    "Se eliminó el envío de un campo inexistente («aqi») que provocaba un "
-    "error HTTP 400.",
-    "El sensor de partículas (PMS5003) se lee por Serial2 (RX 18 / TX 5, "
-    "SET 4).",
-])
-h2("Alarma sonora")
-bullets([
-    "Zumbador pasivo en GPIO 23, controlado con tone()/noTone().",
-    "El ICA se calcula localmente con los mismos breakpoints que la web "
-    "(PM2.5 EPA 2024 y CO con umbral NIOSH REL / OSHA PEL).",
-    "Se activa el sonido al superar ICA > 100 y se corta al bajar de 80; el "
-    "silencio manual dura 10 minutos.",
-])
-h2("Endpoints HTTP")
-tabla([
-    ["Ruta", "Función"],
-    ["/silenciar?k=CLAVE", "Silencia el zumbador (10 minutos)."],
-    ["/status", "Estado de la estación: AQI actual, alerta y silencio."],
-    ["/alarma", "Estado de la alarma y del zumbador."],
-    ["/save (POST)", "Guarda credenciales Wi-Fi y confirma el estado."],
-    ["/", "Punto de acceso de configuración (portal cautivo)."],
-], [150, 355], negrita_primera=True)
-p("Todos los endpoints responden con CORS abierto (Access-Control-Allow-"
-  "Origin: *) para permitir el control desde la web.")
-story.append(PageBreak())
-
-# ===================== 16. INTEGRACIÓN =====================
-h1("16. Integración del sistema y control del zumbador")
-p("El flujo completo del sistema es:")
+# ===================== 12. INTEGRACIÓN =====================
+h1("12. Integración y flujo de datos")
 bullets([
     "El Arduino Uno adquiere los sensores y el GPS y envía la trama de 9 "
-    "campos al ESP32 cada 3 segundos.",
-    "El ESP32 recibe la trama, calcula el ICA local y publica el registro en "
-    "Supabase (incluida su IP local).",
-    "La app web lee Supabase, muestra los datos, marca el nivel de cada "
-    "métrica y el estado general.",
-    "Si el ICA supera 100, el ESP32 activa el zumbador; la app ofrece el botón "
-    "«Detener zumbador».",
-    "El botón llama al endpoint /silenciar del ESP32 (con la clave del "
-    "dispositivo) y silencia la alarma 10 minutos.",
+    "campos al ESP32 cada 3 s.",
+    "El ESP32 recibe la trama, lee el PMS5003, calcula el ICA local y "
+    "publica el registro en Supabase cada 15 s, incluida su IP local.",
+    "La app web lee Supabase por REST y Realtime, muestra los datos y marca "
+    "el nivel de cada métrica y el estado general.",
+    "Si el ICA supera 100, el ESP32 activa el zumbador; la app ofrece el "
+    "botón «Detener zumbador».",
+    "El botón llama a /silenciar con la clave del dispositivo y silencia la "
+    "alarma durante 10 minutos.",
 ])
-h2("Requisitos de red")
-bullets([
-    "El ESP32 y el dispositivo que usa la app deben estar en la misma red "
-    "local para el control del zumbador.",
-    "Si la estación está únicamente en modo punto de acceso, la IP de la app "
-    "es 192.168.4.1 (valor por defecto).",
-])
-p("Nota: la app se sirve por HTTP (por ejemplo con Live Server), por lo que "
-  "la llamada al ESP32 por HTTP no presenta problemas de contenido mixto.")
-
-# ===================== 17. ERRORES =====================
-h1("17. Correcciones de errores durante el desarrollo")
 tabla([
-    ["Problema detectado", "Causa", "Solución aplicada"],
-    ["Los modales no se cerraban y aparecían encimados.",
-     "Reglas CSS .modal con display:grid/flex pisaban el atributo «hidden».",
-     "Se agregó [hidden]{display:none !important}."],
-    ["El gráfico del histórico se veía colapsado en móvil.",
-     "Se creaba con el modal oculto (sin tamaño).",
-     "Se reordenó: abrir modal → crear gráfico → redimensionar."],
-    ["El botón de GitHub aparecía vacío.",
-     "Las versiones nuevas de Lucide ya no incluyen íconos de marcas "
-     "(«github»).",
-     "Se incorporó el logotipo de GitHub como SVG propio en el botón."],
-    ["El aviso «offline» desbordaba el borde en el celular.",
-     "Caja fuera del contenedor y sin márgenes.",
-     "Se envolvió el aviso en un .container, compartiendo el ancho del resto."],
-    ["El logo del encabezado enlazaba a la raíz del sitio.",
-     "Era un enlace href a «./»; al abrir la app como archivo, el navegador "
-     "mostraba el listado de la carpeta (exponía el directorio).",
-     "Se convirtió el logo en un botón que recarga la página "
-     "(location.reload())."],
-    ["Los paneles de Tendencia/GPS se salían de la tarjeta en móviles "
-     "angostos.",
-     "El lienzo de Chart.js tiene ancho intrínseco de 300 px.",
-     "Grillas con minmax(0, …) y min-width:0 en .panel y .chart-wrap."],
-    ["Umbrales sin respaldo normativo y con etiquetas inexactas.",
-     "Rangos elegidos a criterio propio.",
-     "Se recalibraron con fuentes (OSHA/NIOSH, EPA, OMS/ICNIRP, NWS, ASHRAE) y "
-     "se corrigieron los textos."],
-    ["El mapa mostraba «API key required» sobre fondo negro.",
-     "Los mosaicos de Carto requieren clave.",
-     "Se cambió a mosaicos de OpenStreetMap (sin clave)."],
-    ["La descarga JSON salía «entrecortada».",
-     "Pretty-print con muchos registros y MIME sin charset.",
-     "JSON sin indentación y MIME application/json;charset=utf-8."],
-    ["El modal de descarga se desbordaba en Chrome Android al abrir los "
-     "desplegables.",
-     "Grillas 1fr que no podían encogerse por el ancho intrínseco del "
-     "desplegable.",
-     "minmax(0,1fr), min-width:0, overflow-x:hidden y ancho del modal "
-     "limitado al viewport."],
-    ["El texto «JSON (datos crudos)» se cortaba en PC.",
-     "Modal demasiado angosto (420 px).",
-     "Se ensanchó el modal de descarga a 560 px."],
-    ["La app enviaba datos a Supabase y recibía HTTP 400.",
-     "Se enviaba un campo «aqi» inexistente.",
-     "Se eliminó el campo del payload."],
-    ["Las lecturas quedaban desalineadas (valores cruzados).",
-     "El Uno enviaba 8 campos y el ESP32 interpretaba 7.",
-     "Se unificó la trama en 9 campos y el parser correspondiente."],
-    ["Llegaban coordenadas (0,0) a la base.",
-     "El GPS enviaba 0,0 al perder el fix.",
-     "El Uno conserva y reenvía la última coordenada válida."],
-    ["El sketch del Arduino Uno quedó sobrescrito con el de la ESP32.",
-     "Reemplazo accidental del archivo.",
-     "Se restauró el firmware del Uno y se separaron ambos en carpetas "
-     "propias."],
-], [150, 165, 190], negrita_primera=True)
-story.append(PageBreak())
+    ["Etapa", "Frecuencia / tiempo"],
+    ["Trama Uno → ESP32", "Cada 3 s; 9600 baudios."],
+    ["Publicación en Supabase", "Cada 15 s si hay Wi-Fi."],
+    ["Sondeo de respaldo de la web", "Cada 15 s; Realtime para nuevas filas."],
+    ["Silencio manual de la alarma", "10 minutos."],
+    ["Tiempo de intento de conexión Wi-Fi", "20 s; luego vuelve el AP."],
+    ["Confirmación de caída de la red", "5 s; luego vuelve el AP."],
+], cols(0.52, 0.48), negrita_primera=True)
+p("Requisitos de red: el ESP32 y el dispositivo que usa la app deben estar "
+  "en la misma red local para el control del zumbador. Si la estación está "
+  "en modo AP, la IP por defecto es 192.168.4.1. La app se sirve por HTTP "
+  "(Live Server o GitHub Pages), por lo que la llamada al ESP32 por HTTP no "
+  "presenta problemas de contenido mixto.")
+p("Limitación conocida: el ESP32 publica cada 15 s mientras haya Wi-Fi, "
+  "aunque no haya una trama nueva del Uno. Esto puede generar filas "
+  "repetidas o con datos no actualizados. Con el cambio de CO₂ a 0, al "
+  "menos no se publica un 400 falso; queda pendiente agregar una marca de "
+  "frescura antes de subir.")
 
-# ===================== 18. VERIFICACIONES =====================
-h1("18. Verificaciones y pruebas realizadas")
+# ===================== 13. PRUEBAS =====================
+h1("13. Pruebas, verificaciones y correcciones")
+p("Se realizaron verificaciones estáticas, de compilación, de API y de "
+  "renderizado. La versión corregida del ESP32 fue compilada y cargada; la "
+  "prueba de alarma en campo queda pendiente.")
 tabla([
     ["Verificación", "Resultado"],
-    ["Sintaxis del JavaScript (análisis con esprima).", "Correcta (sin errores de análisis)."],
-    ["Coincidencia de los identificadores usados por app.js con el HTML.", "Todos presentes."],
-    ["Respuesta de la API REST de Supabase.", "HTTP 200; columnas con los nombres esperados."],
-    ["Escritura real a Supabase (POST desde el flujo).", "HTTP 201 (registro creado correctamente)."],
+    ["Sintaxis del JavaScript (esprima).", "Correcta, sin errores."],
+    ["Identificadores usados por app.js presentes en el HTML.", "Todos."],
+    ["Respuesta de la API REST de Supabase.", "HTTP 200; columnas esperadas."],
+    ["Escritura real en Supabase (POST).", "HTTP 201; registro creado."],
     ["Compilación del firmware del Arduino Uno (avr-g++).", "Sin errores."],
-    ["Compilación del firmware del ESP32 (xtensa-esp32-elf-g++).", "Sin errores."],
-    ["Parser NMEA del GPS (prueba automatizada).", "Correcto (sentencias N/S/E/W y sin fix)."],
-    ["Renderizado del panel (navegador headless).", "Sin errores de JavaScript; mapa y tarjetas correctos."],
-    ["Columna «ip_dispositivo» en Supabase.", "Operativa; el ESP32 publica su IP en cada envío."],
-    ["Umbral de CO y disparo de la alarma local (revisión de firmware).",
-     "El CO solo marca «dañino» y dispara la alarma desde 35 ppm (NIOSH REL)."],
-], [300, 205], negrita_primera=True)
-p("Prueba pendiente en campo: validar la alarma sonora y el corte del "
-  "zumbador durante una presentación real con la estación conectada a la red "
-  "del lugar.")
+    ["Compilación y carga del ESP32 (xtensa-esp32-elf-g++).",
+     "Sin errores; versión corregida compilada y cargada."],
+    ["Parser NMEA del GPS (prueba automatizada).",
+     "Correcto (N/S/E/W y sin fix)."],
+    ["Renderizado del panel (navegador headless).",
+     "Sin errores de JavaScript; mapa y tarjetas correctos."],
+    ["Columna ip_dispositivo en Supabase.",
+     "Operativa; el ESP32 publica su IP."],
+    ["Umbral de CO y disparo de la alarma local.",
+     "CO «dañino» desde 35 ppm (NIOSH REL)."],
+    ["Panel publicado en GitHub Pages.", "HTTP 200."],
+    ["Revisión estática de la versión corregida.",
+     "Delimitadores balanceados; una sola WiFi.begin(); sin marcadores "
+     "prohibidos; CO₂ inicial en 0."],
+    ["Prueba de alarma en campo.", "Pendiente."],
+], cols(0.56, 0.44), negrita_primera=True)
 
-# ===================== 19. EJECUCIÓN =====================
-h1("19. Cómo ejecutar y visualizar el sistema")
-h2("Aplicación web con Live Server (Visual Studio Code)")
-bullets([
-    "Abrir la carpeta de la app web en Visual Studio Code.",
-    "Instalar la extensión «Live Server» y pulsar «Go Live».",
-    "Se abrirá el panel en http://127.0.0.1:5500/.",
-    "Desde un celular de la misma red: http://<IP-de-la-PC>:5500/ (la IP se "
-    "obtiene con hostname -I).",
-])
-h2("Opción alternativa — servidor local con Python")
-code("python3 -m http.server 8000 --bind 0.0.0.0")
-bullets([
-    "En la misma PC: http://127.0.0.1:8000/",
-    "En un celular de la misma red Wi-Fi: http://<IP-de-la-PC>:8000/",
-    "Requiere conexión a internet (librerías por CDN y consulta a Supabase).",
-    "Para el control del zumbador, estar en la misma red local que el ESP32.",
-    "Detener el servidor con Ctrl + C.",
-])
+h2("13.1 Correcciones durante el desarrollo")
+tabla([
+    ["Problema", "Causa", "Solución"],
+    ["Modales encimados o que no se cerraban.",
+     "Reglas CSS .modal con display:grid/flex pisaban [hidden].",
+     "Se agregó [hidden]{display:none !important}."],
+    ["Gráfico del histórico colapsado en móvil.",
+     "Se creaba con el modal oculto (sin tamaño).",
+     "Abrir modal → crear gráfico → redimensionar."],
+    ["Botón de GitHub vacío.",
+     "Lucide ya no incluye íconos de marcas.",
+     "Se incorporó el logo de GitHub como SVG propio."],
+    ["Aviso offline desbordado en el celular.",
+     "Caja fuera del contenedor y sin márgenes.",
+     "Se envolvió en un .container."],
+    ["Logo del encabezado enlazaba a la raíz.",
+     "Era un href a «./»; al abrir como archivo mostraba el directorio.",
+     "Se convirtió en botón con location.reload()."],
+    ["Paneles de Tendencia/GPS fuera de la tarjeta.",
+     "El lienzo de Chart.js tiene ancho intrínseco de 300 px.",
+     "Grillas minmax(0, …) y min-width:0."],
+    ["Umbrales sin respaldo y etiquetas inexactas.",
+     "Rangos elegidos a criterio propio.",
+     "Se recalibraron con OSHA/NIOSH, EPA, OMS, NWS y ASHRAE."],
+    ["Mapa con «API key required».",
+     "Los mosaicos de Carto requieren clave.",
+     "Se cambió a OpenStreetMap."],
+    ["Descarga JSON entrecortada.",
+     "Pretty-print con muchos registros y MIME sin charset.",
+     "JSON sin indentación y application/json;charset=utf-8."],
+    ["Modal de descarga desbordado en Chrome Android.",
+     "Grillas 1fr que no podían encogerse.",
+     "minmax(0,1fr), min-width:0 y overflow-x:hidden."],
+    ["Texto «JSON (datos crudos)» cortado.",
+     "Modal demasiado angosto (420 px).",
+     "Se ensanchó a 560 px."],
+    ["HTTP 400 al publicar.",
+     "Se enviaba un campo «aqi» inexistente.",
+     "Se eliminó del payload."],
+    ["Lecturas desalineadas.",
+     "El Uno enviaba 8 campos y el ESP32 interpretaba 7.",
+     "Se unificó la trama en 9 campos."],
+    ["Coordenadas (0,0) en la base.",
+     "El GPS enviaba 0,0 al perder el fix.",
+     "El Uno conserva y reenvía la última coordenada válida."],
+    ["Sketch del Uno sobrescrito.",
+     "Reemplazo accidental por el de la ESP32.",
+     "Se restauró y se separaron en carpetas propias."],
+    ["Reinicio en bucle del ESP32.",
+     "Sockets abiertos antes de inicializar lwIP.",
+     "iniciarAP() antes de setupWebServer()."],
+    ["AP permanente y credenciales en NVS.",
+     "Diseño anterior de red.",
+     "AP temporal, credenciales en RAM, sin auto-reconexión de librería."],
+    ["CO₂ 400 falso sin datos del Uno.",
+     "Valor inicial 400 en el ESP32.",
+     "CurrentCO2 = 0; 0 significa «sin lectura»."],
+], cols(0.27, 0.33, 0.40), small=True, negrita_primera=True)
 
-# ===================== 20. PENDIENTES =====================
-h1("20. Pendientes y recomendaciones")
+# ===================== 14. RESULTADOS =====================
+h1("14. Resultados y análisis de datos")
+p("Al 28/10/2026 la base contiene 2.836 mediciones, con 1.867 lecturas con "
+  "coordenadas y 1.630 con IP del dispositivo. La última fila (id 2838) "
+  "registró CO₂ 400 ppm, CO 16,36 ppm, PM2.5 40 µg/m³, temperatura 25,4 °C, "
+  "humedad 64 %, presión 969 hPa, UV 0,5 mW/cm² y luz 11 lux.")
+p("Con esos valores, el subíndice de PM2.5 cae en el tramo 35,5–55,4 → "
+  "101–150; para 40 µg/m³ el ICA estimado es ≈112, categoría «Dañina para "
+  "grupos sensibles». El CO, con 16,36 ppm, queda en el tramo 4,5–34,9 → "
+  "51–100 (≈70). El ICA global es el peor: ≈112, dominado por PM2.5. Es un "
+  "ejemplo de cálculo de una sola fila, no una tendencia.")
+p("Calidad y limitaciones de los datos")
+bullets([
+    "101 filas (3,6 %) tienen co2=400 y temperatura=0 por el valor inicial "
+    "antiguo; se conservan como registro histórico y no se limpiaron.",
+    "La cobertura de GPS e IP es parcial por el orden de incorporación de "
+    "las funciones; no invalida las mediciones, pero limita el mapa y el "
+    "control remoto en las filas antiguas.",
+    "La estación es única y no tiene calibración de laboratorio; los "
+    "sensores de bajo costo tienen deriva y precisión limitada.",
+    "El envío cada 15 s sin marca de frescura puede repetir datos; se "
+    "recomienda corregirlo.",
+    "Los valores de PM2.5 y CO son lecturas instantáneas, mientras que el "
+    "ICA de la EPA se basa en promedios (24 h y 8 h).",
+])
+p("El sistema cumplió el objetivo de adquirir, publicar y visualizar datos "
+  "reales de forma continua. La base supera las 2.800 filas y el panel "
+  "responde en GitHub Pages; la alarma local y el control remoto quedan "
+  "verificados a nivel de firmware y endpoints, con la prueba de campo "
+  "pendiente.")
+
+# ===================== 15. DESPLIEGUE =====================
+h1("15. Despliegue y uso")
+h2("15.1 Panel web")
+bullets([
+    "Publicado en https://benicio54.github.io/Tucuman-respira/.",
+    "Repositorio: https://github.com/Benicio54/Tucuman-respira.",
+    "Desarrollo local con Live Server (VS Code) o "
+    "python3 -m http.server 8000 --bind 0.0.0.0.",
+    "Requiere internet para las librerías por CDN y la consulta a Supabase.",
+    "Para el control del zumbador, el dispositivo debe estar en la misma red "
+    "local que el ESP32.",
+])
+h2("15.2 Compilación y carga")
+bullets([
+    "Arduino Uno: placa «Arduino Uno», core AVR 1.8.8; librerías Wire, "
+    "SoftwareSerial y Adafruit BME280 (con Adafruit Unified Sensor). Abrir "
+    "Código_ArduinoUno/sketch_oct17a/sketch_oct17a.ino y cargar.",
+    "ESP32: placa «ESP32 Dev Module», core 3.3.12; librerías WiFi, "
+    "HTTPClient, ArduinoJson, DNSServer y WebServer (incluidas en el core). "
+    "Abrir Código_ESP32/sketch_oct17b/sketch_oct17b.ino y cargar.",
+    "Verificar las conexiones: PMS5003 en el ESP32 (18/5/4), enlace serie "
+    "Uno↔ESP32 (2/3 ↔ 16/17), GPS (7/8), CO₂ (10/11), BME280 (A4/A5), "
+    "MQ-7 (A0), ML8511 (A2), LDR (A1) y zumbador (GPIO 23).",
+])
+h2("15.3 Configuración de la red")
+bullets([
+    "Conectar el celular o la PC a Tucuman-Respira-Config (contraseña "
+    "Tucuman2026).",
+    "Abrir http://192.168.4.1, ingresar SSID y contraseña de la red local y "
+    "guardar.",
+    "Si el AP desaparece, la conexión fue exitosa; si reaparece, revisar la "
+    "contraseña e intentar de nuevo.",
+    "Las credenciales viven en RAM: al reiniciar, el equipo vuelve a abrir "
+    "el AP. No hay reconexión automática de la librería; si la red se cae, "
+    "el AP se reabre para reconfigurar.",
+    "La IP local se publica en Supabase (ip_dispositivo) y la web la usa "
+    "para el botón de silencio.",
+])
+p("Mantenimiento: dejar calentar el MQ-7, revisar la calibración en aire "
+  "limpio, mantener limpio el ventilador del PMS5003, verificar la antena "
+  "del GPS y ajustar los tornillos del gabinete. El sensor de CO₂ y el de "
+  "partículas requieren limpieza y recalibración periódicas.")
+
+# ===================== 16. PENDIENTES =====================
+h1("16. Pendientes, recomendaciones y conclusiones")
+h2("16.1 Pendientes")
 tabla([
     ["Tema", "Recomendación"],
-    ["Publicación online", "Hostear los 3 archivos (GitHub Pages, Netlify, "
-     "Vercel o Cloudflare Pages) para que el público acceda."],
-    ["Clave de Supabase", "Mantener solo la clave pública (anon) de lectura en "
-     "el cliente."],
-    ["Umbral de CO", "Re-flashear el ESP32 para que el nuevo umbral (35 ppm) "
-     "quede activo en la estación."],
-    ["Calibración del MQ-7", "Verificar la calibración del sensor de CO en "
-     "aire limpio para evitar lecturas altas constantes."],
-    ["Alarma en campo", "Validar en campo el disparo y el corte del zumbador."],
-    ["Escalado del ICA del CO", "Revisar los tramos superiores del CO (>50 "
-     "ppm) frente a nuevas fuentes si se necesita más detalle."],
-], [120, 385], negrita_primera=True)
-story.append(PageBreak())
+    ["Alarma en campo", "Validar el disparo y el corte del zumbador durante "
+                        "una presentación real."],
+    ["Calibración del MQ-7", "Verificar la calibración en aire limpio para "
+                             "evitar lecturas altas constantes."],
+    ["CO₂ sin lectura", "Decidir si el panel muestra 0 o «—» cuando no hay "
+                        "datos; documentar el criterio."],
+    ["Filas históricas", "Evaluar la limpieza o el etiquetado de las 101 "
+                         "filas con co2=400 y temp=0."],
+    ["Frescura del envío", "Agregar una marca de tiempo/frescura antes de "
+                          "publicar para no repetir datos."],
+    ["Energía y gabinete", "Revisar alimentación, ventilación y fijaciones; "
+                          "evaluar batería o fuente externa."],
+    ["Escalado", "Considerar varias estaciones, backend propio, RLS y HTTPS "
+                "en el dispositivo."],
+], cols(0.26, 0.74), negrita_primera=True)
+h2("16.2 Conclusiones")
+p("El proyecto logró un sistema completo y funcional: adquisición con dos "
+  "microcontroladores, publicación en la nube, panel público, histórico, "
+  "mapa, descargas y alarma local con control remoto. La documentación del "
+  "equipo permitió recuperar el proceso de armado, los componentes y las "
+  "decisiones de hardware, y este informe los integra con el detalle "
+  "técnico del software y los datos.")
+p("Las principales enseñanzas fueron la importancia de probar los "
+  "componentes por separado, de separar los firmwares en carpetas propias, "
+  "de inicializar la red antes de abrir sockets y de distinguir un valor "
+  "real de un valor por defecto. Las limitaciones —calibración, estación "
+  "única, datos instantáneos y filas históricas— quedan explicitadas para "
+  "futuras mejoras.")
+p("El panel está publicado y la base sigue creciendo con mediciones reales. "
+  "La prueba de campo de la alarma y la calibración fina de los sensores "
+  "quedan como próximos pasos.")
 
-# ===================== ANEXOS =====================
+# ===================== 17. REFERENCIAS =====================
+h1("17. Referencias")
+bullets([
+    "US EPA. Air Quality Index (AQI) — Technical Assistance Document, 2024.",
+    "OSHA. 29 CFR 1910.1000 — Air Contaminants.",
+    "NIOSH. Pocket Guide to Chemical Hazards (CO, CO₂).",
+    "ASHRAE. Standard 62.1 (ventilación) y Standard 55 (confort térmico).",
+    "OMS. Directrices mundiales de calidad del aire, 2021.",
+    "Winsen. MH-Z19C CO₂ Module — Datasheet.",
+    "Plantower. PMS5003 Particulate Matter Sensor — Datasheet.",
+    "Adafruit. BME280 Temperature, Humidity and Pressure Sensor.",
+    "ML8511 UV Sensor — Datasheet.",
+    "MQ-7 Carbon Monoxide Sensor — Datasheet.",
+    "u-blox. NEO-6M GPS Module — Datasheet.",
+    "Arduino. Documentación del core AVR y de las placas Uno.",
+    "Espressif. ESP32 Arduino Core 3.3.12 — Documentación.",
+    "Supabase. PostgREST API y Realtime — Documentación.",
+    "Chart.js 4.4.1, Leaflet 1.9.4, Lucide y reportlab 4.1.0 — Documentación.",
+    "Equipo Tucumán Respira. Documentación del proyecto, 2026.",
+])
+
+# ===================== ANEXO A =====================
 h1("Anexo A — Configuración y claves")
 p("La configuración se centraliza al inicio de app.js en el bloque CONFIG:")
-code("""const CONFIG = {
-  supabaseUrl: "https://lskvyvpjjziuclaatrtu.supabase.co",
-  supabaseKey: "sb_publishable_O9Havbh6tsAZEDA8VFWQzg_LmTmU4mM",
-  table: "mediciones",
-  historyLimit: 100,
-  pollMs: 15000,
-  staleWarnSeconds: 120,
-  staleOfflineSeconds: 300,
-  defaultLat: -26.82414,
-  defaultLng: -65.2226,
-  downloadRanges: { "100": 100, "500": 500, "1000": 1000, all: Infinity },
-  deviceKey: "tucu2026",
-  deviceIpDefault: "192.168.4.1",
-  muteMinutes: 10
-};""")
-p("Nota de seguridad: «supabaseKey» es una clave pública (anon) pensada para "
-  "usarse en el cliente; no debe reemplazarse por la clave de servicio. La "
-  "protección de los datos depende de las políticas RLS del servidor. La "
-  "clave «deviceKey» es la que exige el ESP32 en el endpoint «/silenciar».")
+code('const CONFIG = {\n'
+     '  supabaseUrl: "https://lskvyvpjjziuclaatrtu.supabase.co",\n'
+     '  supabaseKey: "sb_publishable_O9Havbh6tsAZEDA8VFWQzg_LmTmU4mM",\n'
+     '  table: "mediciones",\n'
+     '  historyLimit: 100,\n'
+     '  pollMs: 15000,\n'
+     '  staleWarnSeconds: 120,\n'
+     '  staleOfflineSeconds: 300,\n'
+     '  defaultLat: -26.82414,\n'
+     '  defaultLng: -65.2226,\n'
+     '  downloadRanges: { "100": 100, "500": 500, "1000": 1000, all: Infinity },\n'
+     '  deviceKey: "tucu2026",\n'
+     '  deviceIpDefault: "192.168.4.1",\n'
+     '  muteMinutes: 10\n'
+     '};')
+p("La clave de Supabase es pública (anon) y de solo lectura; no debe "
+  "reemplazarse por la clave de servicio. La protección de los datos "
+  "depende de las políticas RLS del servidor. La clave deviceKey es la que "
+  "exige el ESP32 en /silenciar. El AP usa la contraseña Tucuman2026 y la "
+  "IP 192.168.4.1.")
 
+# ===================== ANEXO B =====================
 h1("Anexo B — Exportación de datos (CSV / JSON)")
-h2("CSV")
-p("El archivo incluye una marca de orden de bytes (BOM) UTF-8 y separador "
-  "punto y coma (;). Columnas:")
+p("CSV")
+p("El archivo incluye BOM UTF-8 y separador punto y coma (;). Columnas:")
 code("id;fecha_hora;pm25_ug_m3;co2_ppm;co_ppm;temperatura_c;humedad_pct;\n"
      "presion_hpa;uv;luz_lux;latitud;longitud")
-h2("JSON")
-p("El archivo JSON contiene el arreglo de registros tal como los devuelve la "
-  "API, con todos los campos de cada medición (incluidos latitud, longitud e "
+p("JSON")
+p("El archivo contiene el arreglo de registros tal como lo devuelve la API, "
+  "con todos los campos de cada medición (incluidos latitud, longitud e "
   "ip_dispositivo). Se genera sin indentación y con codificación UTF-8 para "
-  "evitar cortes en archivos grandes.")
-story.append(PageBreak())
+  "evitar cortes en archivos grandes. Los rangos de descarga son 100, 500, "
+  "1000 o todas las filas; la descarga completa usa paginación.")
 
 # ===================== ANEXO C =====================
 h1("Anexo C — Trama de comunicación Uno → ESP32")
-p("Comunicación serie a 9600 baudios, una línea de texto por medición, con 9 "
-  "campos separados por comas:")
+p("Comunicación serie a 9600 baudios, una línea de texto por medición, con "
+  "9 campos separados por comas:")
 tabla([
     ["Posición", "Campo", "Ejemplo"],
     ["1", "CO₂ (ppm)", "412"],
@@ -993,64 +1249,101 @@ tabla([
     ["7", "Luz (lux)", "120"],
     ["8", "Latitud (grados decimales)", "-26.83972"],
     ["9", "Longitud (grados decimales)", "-65.29328"],
-], [70, 250, 185], negrita_primera=True)
+], cols(0.16, 0.52, 0.32), negrita_primera=True)
 p("El ESP32 procesa la trama con una lectura de formato tipo "
-  "sscanf(\"%d,%f,%f,%f,%f,%f,%d,%f,%f\") y descarta las tramas inválidas.")
+  "sscanf(\"%d,%f,%f,%f,%f,%f,%d,%f,%f\") y descarta las tramas inválidas. "
+  "Si el MH-Z19C no responde, el primer campo llega en 0.")
 
 # ===================== ANEXO D =====================
-h1("Anexo D — Prompt para recrear el proyecto con opencode")
-p("A continuación se incluye un prompt ampliado para recrear el sistema "
-  "completo (panel web y firmwares) con sus umbrales actualizados.")
-code(
-    'Recrea el proyecto "Tucuman Respira": panel web estatico (index.html +\n'
-    'styles.css + app.js) que lee Supabase y dos firmwares (Arduino Uno +\n'
-    'ESP32) que cargan las mediciones.\n\n'
-    'DATOS (Supabase, solo lectura):\n'
-    '- URL: https://lskvyvpjjziuclaatrtu.supabase.co\n'
-    '- Clave publica (anon): sb_publishable_O9Havbh6tsAZEDA8VFWQzg_LmTmU4mM\n'
-    '- Tabla: mediciones (id, created_at, co2, co, pm25, temperatura,\n'
-    '  humedad, presion, uv, luz, latitud, longitud, ip_dispositivo)\n'
-    '- GET {URL}/rest/v1/mediciones?select=*&order=id.desc&limit=100\n\n'
-    'METRICAS Y UMBRALES (mostrar la fuente):\n'
-    '- CO2 [ppm] OSHA/NIOSH + ASHRAE: Bueno<=800, Aceptable<=1000,\n'
-    '  Ventilacion pobre<=1500, Alta (PEL 8h)<=5000, Muy alta (STEL)<=30000.\n'
-    '- CO [ppm] NIOSH REL (35 ppm)/OSHA PEL (50 ppm): Bueno<=4.4,\n'
-    '  Moderado<=34.9, Danino<=50, Muy danino<=100, Peligroso<=200.\n'
-    '- PM2.5 [ug/m3] EPA AQI 2024: Bueno<=9, Moderado<=35.4,\n'
-    '  Danino grupos sensibles<=55.4, Danino<=125.4, Muy danino<=225.4.\n'
-    '- Temperatura [C], Humedad [%], Presion [hPa], UV [mW/cm2] y Luz [lux]\n'
-    '  con sus umbrales de salud habituales.\n\n'
-    'ICA: subindice de PM2.5 y CO por interpolacion lineal; tomar el PEOR.\n'
-    '- pm25: [0,9.0]->[0,50] [9.1,35.4]->[51,100] [35.5,55.4]->[101,150]\n'
-    '  [55.5,125.4]->[151,200] [125.5,225.4]->[201,300]\n'
-    '- co: [0,4.4]->[0,50] [4.5,34.9]->[51,100] [35,50]->[101,150]\n'
-    '  [50.1,100]->[151,200] [100.1,200]->[201,300] [200.1,500]->[301,500]\n'
-    '- Categorias: 0-50 Buena; 51-100 Moderada; 101-150 Danina para grupos\n'
-    '  sensibles; 151-200 Danina; 201-300 Muy danina; 301-500 Peligrosa.\n\n'
-    'FIRMWARE ESP32: WiFi STA + AP "Tucuman-Respira-Config" (clave\n'
-    'Tucuman2026, IP 192.168.4.1), POST a Supabase, zumbador GPIO 23 (tone/\n'
-    'noTone) que suena si ICA>100 y se corta si <80, y endpoints /silenciar,\n'
-    '/status, /alarma, /save.\n\n'
-    'Control del zumbador: la web obtiene la IP desde ip_dispositivo\n'
-    '(fallback 192.168.4.1) y llama a http://<ip>/silenciar?k=tucu2026.\n'
-    'Entrega los archivos completos y funcionales, sin backend propio.')
+h1("Anexo D — Registro fotográfico")
+p("Este anexo reúne todo el material gráfico disponible: 16 diagramas, "
+  "esquemas y capturas de la documentación del equipo (D.1–D.16) y las 43 "
+  "fotografías del archivo del proyecto (F.01–F.43). Las figuras 1 a 4 del "
+  "cuerpo son una selección de este mismo conjunto. Las fotografías fueron "
+  "tomadas por Tatiana Maturano y el equipo; el orden reproduce la secuencia "
+  "de los archivos originales.")
+h2("Diagramas, esquemas y capturas")
+_diag = [
+    "Pruebas iniciales de los sensores.",
+    "Calibración de componentes sensibles.",
+    "Montaje en protoboard.",
+    "Conexión del circuito.",
+    "Armado del prototipo.",
+    "Cableado y soldadura.",
+    "Pruebas de integración.",
+    "Desarrollo del firmware.",
+    "Panel web.",
+    "Pruebas del panel.",
+    "Integración de datos.",
+    "Gabinete: vista del conjunto.",
+    "Conexiones del módulo de clima.",
+    "Conexiones del GPS.",
+    "Módulos de medición de gases.",
+    "Conexionado de sensores.",
+]
+fig_grid([
+    (FIG / f"fig_{i:02d}.jpeg", f"D.{i}. {cap}")
+    for i, cap in enumerate(_diag, 1)
+], cols_n=3)
 
-p("Fin del informe — «Tucumán Respira», sistema de monitoreo de calidad del "
-  "aire IoT (panel web, umbrales y firmwares). Encargado del trabajo: Benicio "
-  "Gael Pieroni. Documento generado el 18/10/2026.")
-story.append(Spacer(1, 24))
-story.append(Paragraph(
-    "Tucumán Respira — Encargado: Benicio Gael Pieroni", S["small"]))
+h2("Proceso de armado y pruebas — 15/10/2026")
+fig_grid([
+    (FIG / f"foto_{i:02d}.jpeg", f"F.{i:02d}. Registro fotográfico del proceso.")
+    for i in range(1, 41)
+], cols_n=3)
+h2("Puesta a punto — 17/10/2026")
+fig_grid([
+    (FIG / f"foto_{i:02d}.jpeg", f"F.{i:02d}. Registro fotográfico del proceso.")
+    for i in range(41, 43)
+], cols_n=3)
+h2("Montaje final — 26/10/2026")
+fig_grid([
+    (FIG / "foto_43.jpeg", "F.43. Registro fotográfico del proceso."),
+], cols_n=3)
 
+# ===================== ANEXO E =====================
+h1("Anexo E — Material complementario")
+p("Los siguientes materiales se conservan en la carpeta "
+  "Informes_anteriores/ o en la carpeta de recursos del equipo. Los videos "
+  "no se incluyen en el repositorio por su tamaño, pero se mencionan para "
+  "que el material quede identificado.")
+tabla([
+    ["Material", "Ubicación / observación"],
+    ["Documentación del equipo (10 pp., 15 MB)",
+     "Informes_anteriores/Documentacion_equipo_2026-10-15.pdf. Origen del "
+     "proceso, componentes, gabinete y roles."],
+    ["Prompt para recrear el proyecto",
+     "Informes_anteriores/PROMPT_recrear_proyecto.pdf. Versión conservada "
+     "del Anexo D del informe del 18/10/2026."],
+    ["Informe técnico anterior (18/10/2026)",
+     "Informes_anteriores/Informe_Tucuman_Respira_2026-10-18.pdf."],
+    ["Video 2026-10-15 (8,6 MB)",
+     "WhatsApp Video 2026-10-15 at 10.17.47.mp4, en la carpeta recursos. "
+     "No incluido en el repositorio."],
+    ["Video 2026-10-17 (76 MB)",
+     "WhatsApp Video 2026-10-17 at 21.55.01.mp4, en la carpeta recursos. "
+     "No incluido en el repositorio."],
+    ["Fotografías",
+     "43 fotografías en figuras/ (foto_01–foto_43) y 16 diagramas, esquemas "
+     "y capturas (fig_01–fig_16); el material original queda en la carpeta "
+     "recursos del equipo."],
+], cols(0.30, 0.70), negrita_primera=True)
+p("Fin del informe — «Tucumán Respira», Escuela Técnica N°5, 28/10/2026. "
+  "Documento consolidado por Benicio Gael Pieroni para el equipo del "
+  "proyecto.")
 
+# ===================== BUILD =====================
 def main():
     doc = BaseDocTemplate(
         SALIDA, pagesize=A4,
         leftMargin=15 * mm, rightMargin=15 * mm,
         topMargin=16 * mm, bottomMargin=18 * mm,
-        title="Informe técnico unificado — Tucumán Respira",
-        author="Benicio Gael Pieroni",
-        subject="Panel web, umbrales y firmwares — Estación de monitoreo IoT",
+        title="Informe técnico unificado — Tucumán Respira 2026",
+        author="Equipo Tucumán Respira — Escuela Técnica N°5",
+        subject="Estación de monitoreo de calidad del aire IoT: hardware, "
+                "firmwares, panel web, datos y documentación del equipo",
+        keywords="Tucumán Respira, calidad del aire, Arduino Uno, ESP32, "
+                 "Supabase, IoT, Escuela Técnica N°5",
     )
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height,
                   id="cuerpo")
