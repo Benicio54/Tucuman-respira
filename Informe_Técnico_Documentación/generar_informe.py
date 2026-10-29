@@ -5,6 +5,8 @@
 Integra el informe técnico previo, la documentación del equipo y las
 correcciones recientes (red/AP, arranque del ESP32 y CO₂ por defecto).
 """
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from PIL import Image as PILImage
@@ -23,6 +25,10 @@ from reportlab.platypus import (
 BASE = Path(__file__).resolve().parent
 SALIDA = str(BASE / "Informe_Tucuman_Respira.pdf")
 FIG = BASE / "figuras"
+DATOS_PATH = BASE / "datos_resumen.json"
+if not DATOS_PATH.exists():
+    raise SystemExit("Falta datos_resumen.json; ejecutá actualizar_datos.py.")
+DATOS = json.loads(DATOS_PATH.read_text(encoding="utf-8"))
 
 FONT_DIR = Path("/usr/share/fonts/truetype/dejavu")
 pdfmetrics.registerFont(TTFont("DejaVu", FONT_DIR / "DejaVuSans.ttf"))
@@ -112,6 +118,42 @@ def esc(t):
             .replace(">", "&gt;"))
 
 
+def fmt_int(n):
+    return f"{int(n):,}".replace(",", ".")
+
+
+def fmt_dec(x, dec=2):
+    s = f"{float(x):,.{dec}f}"
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def fmt_var(clave, x):
+    if clave in ("co2", "luz", "presion"):
+        return fmt_dec(x, 0)
+    if clave in ("temperatura", "humedad", "pm25"):
+        return fmt_dec(x, 1)
+    return fmt_dec(x, 2)
+
+
+def fmt_pct(x):
+    return f"{float(x):.1f}".replace(".", ",") + " %"
+
+
+def fmt_fecha_utc(iso):
+    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    return dt.strftime("%d/%m/%Y %H:%M UTC")
+
+
+def fmt_fecha_local(iso):
+    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    return dt.astimezone(timezone(timedelta(hours=-3))).strftime(
+        "%d/%m/%Y %H:%M UTC−3")
+
+
+def fmt_dia(iso):
+    return datetime.strptime(str(iso), "%Y-%m-%d").strftime("%d/%m")
+
+
 def h1(t):
     story.append(Paragraph(esc(t), S["h1"]))
 
@@ -171,7 +213,7 @@ def tabla(rows, anchos, negrita_primera=False, small=False):
     story.append(Spacer(1, 7))
 
 
-def fig(path, caption, width_cm=15.0, max_h_mm=92):
+def fig(path, caption, width_cm=16.5, max_h_mm=115):
     path = Path(path)
     if not path.exists():
         return
@@ -186,7 +228,7 @@ def fig(path, caption, width_cm=15.0, max_h_mm=92):
     ]))
 
 
-def fig_grid(items, cols_n=3):
+def fig_grid(items, cols_n=2, captions=True):
     cell_w = ANCHO / cols_n
     rows = []
     for i in range(0, len(items), cols_n):
@@ -202,11 +244,14 @@ def fig_grid(items, cols_n=3):
                 continue
             with PILImage.open(path) as im:
                 w, h = im.size
-            scale = min((cell_w - 9) / w, 52 * mm / h)
+            scale = min((cell_w - 9) / w, 70 * mm / h)
             rl = RLImage(str(path), width=w * scale, height=h * scale)
             rl.hAlign = "CENTER"
-            row.append([rl, Spacer(1, 3),
-                        Paragraph(esc(caption), S["figcap"])])
+            if captions:
+                row.append([rl, Spacer(1, 3),
+                            Paragraph(esc(caption), S["figcap"])])
+            else:
+                row.append(rl)
         rows.append(row)
     t = Table(rows, colWidths=[cell_w] * cols_n)
     t.setStyle(TableStyle([
@@ -252,7 +297,7 @@ story.append(Paragraph(
     "María Pía Olivar · Benicio Gael Pieroni · Joaquín Valdecanto · "
     "Tatiana Maturano · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
 story.append(Paragraph(
-    "Documento consolidado por Benicio Gael Pieroni. 28 de octubre de 2026.",
+    "Documento consolidado por Benicio Gael Pieroni. 29 de octubre de 2026.",
     S["equipo"]))
 story.append(Spacer(1, 12))
 
@@ -269,7 +314,7 @@ tabla([
      "Documento único que integra el informe técnico previo, la "
      "documentación del equipo, el hardware, los firmwares, el panel web, "
      "los datos y las correcciones recientes."],
-    ["Fecha", "28/10/2026"],
+    ["Fecha", "29/10/2026"],
     ["Estado",
      "Implementado, integrado y publicado en GitHub Pages. La versión "
      "corregida del ESP32 fue compilada y cargada."],
@@ -281,9 +326,10 @@ story.append(Spacer(1, 2))
 story.append(Paragraph(
     "Nota de consolidación: este documento reemplaza al informe técnico del "
     "18/10/2026 y reúne la documentación elaborada por el equipo. Las "
-    "versiones anteriores se conservan en la carpeta Informes_anteriores/, "
-    "junto con el documento original del equipo y el prompt para recrear el "
-    "proyecto.", S["nota"]))
+    "versiones anteriores se conservan en la carpeta Informes_anteriores/. "
+    "La síntesis de 8–10 páginas para el concurso se entrega por separado en "
+    "Sintesis_Concurso_Tucuman_Respira.pdf y remite a este informe para el "
+    "detalle completo.", S["nota"]))
 story.append(PageBreak())
 
 # ===================== ÍNDICE =====================
@@ -347,8 +393,8 @@ bullets([
     "si se pierde la red; las credenciales quedan en RAM.",
     "Versión corregida del ESP32 compilada y cargada; se corrigieron el "
     "orden de arranque, la red/AP y el valor por defecto de CO₂.",
-    "Panel publicado en GitHub Pages y base con más de 2.800 mediciones "
-    "reales al 28/10/2026.",
+    f"Panel publicado en GitHub Pages y base con {fmt_int(DATOS['total'])} "
+    f"mediciones reales al {DATOS['fecha_corta']}.",
 ])
 p("El informe integra la documentación del equipo (proceso, componentes, "
   "gabinete y roles), el detalle técnico de los firmwares y del panel, y "
@@ -363,11 +409,26 @@ p("La calidad del aire afecta la salud respiratoria y cardiovascular. La "
   "interiores y exteriores. Una estación de bajo costo permite observar "
   "tendencias, detectar episodios de ventilación deficiente y acercar los "
   "datos a la comunidad educativa.")
-p("Objetivo general")
+h2("2.1 Problema abordado")
+p("El problema abordado es la dificultad de contar con información local, "
+  "continua y accesible sobre la calidad del aire y las condiciones "
+  "ambientales de la escuela y su entorno. Los datos públicos disponibles "
+  "suelen estar dispersos, no tienen resolución local o no resultan fáciles "
+  "de interpretar; además, no siempre existe una herramienta propia para "
+  "medir, registrar y comparar variables como PM2.5, CO y CO₂. Esa falta de "
+  "información dificulta detectar episodios de ventilación deficiente, "
+  "relacionar las mediciones con las actividades cotidianas y tomar "
+  "decisiones fundamentadas.")
+p("El proyecto responde a esa necesidad con una estación de bajo costo, "
+  "documentada y replicable, y con un panel que traduce las mediciones en "
+  "información comprensible para la comunidad educativa. La estación no "
+  "reemplaza una red de monitoreo certificada: busca acercar los datos, "
+  "mostrar tendencias y habilitar preguntas concretas sobre el ambiente.")
+h2("2.2 Objetivo general")
 p("Diseñar, construir y documentar un sistema completo de monitoreo —desde "
   "la adquisición en campo hasta la publicación web— que permita comprender "
   "el estado de la calidad del aire y consultar los datos históricos.")
-p("Objetivos específicos")
+h2("2.3 Objetivos específicos")
 bullets([
     "Medir PM2.5, CO, CO₂, temperatura, humedad, presión, UV y luz.",
     "Registrar la ubicación geográfica de las mediciones con GPS.",
@@ -378,13 +439,13 @@ bullets([
     "Documentar el hardware, el proceso de armado, el gabinete y los roles "
     "del equipo.",
 ])
-p("Alcance y límites")
+h2("2.4 Alcance y límites")
 p("El informe cubre el hardware, los firmwares, la base de datos, el panel "
   "web, las pruebas y los resultados descriptivos. No incluye calibración "
   "de laboratorio, certificación metrológica, un estudio epidemiológico ni "
   "una campaña prolongada en múltiples puntos. La estación es única y los "
   "datos deben interpretarse como una referencia local.")
-p("Perfil de usuarios")
+h2("2.5 Perfil de usuarios")
 p("Público general: docentes, estudiantes y personas técnicas o interesadas "
   "en la calidad del aire. La interfaz prioriza legibilidad, lenguaje claro "
   "y acceso desde cualquier dispositivo.")
@@ -392,9 +453,11 @@ p("Público general: docentes, estudiantes y personas técnicas o interesadas "
 # ===================== 3. EQUIPO =====================
 h1("3. Equipo, roles y metodología")
 p("El proyecto fue realizado por un equipo interdisciplinario. Los roles "
-  "surgen de la documentación elaborada por el propio grupo.")
+  "surgen de la documentación elaborada por el propio grupo. El equipo contó "
+  "con el acompañamiento del docente Tadeo Lobo, de la materia Tecnología de "
+  "Control, quien orientó y supervisó el desarrollo del proyecto.")
 tabla([
-    ["Integrante", "Rol o aporte"],
+    ["Integrante / docente", "Rol o aporte"],
     ["Roy Luciano Molina", "Diseño del gabinete."],
     ["Maximo Valdez Leguina",
      "Diseño del circuito de conexiones electrónicas."],
@@ -408,6 +471,8 @@ tabla([
     ["Bautista Argañaraz", "Colaboración en el proyecto."],
     ["Jonás Barreiro",
      "Elaboración del informe de sensores, placas y proyecto final."],
+    ["Tadeo Lobo (docente)",
+     "Tecnología de Control; acompañamiento y supervisión del proyecto."],
 ], cols(0.28, 0.72), negrita_primera=True)
 
 p("Metodología de trabajo")
@@ -436,9 +501,9 @@ p("Durante el armado surgieron dos problemas prácticos que quedaron "
   "previstos para la tapa no permitían un cierre adecuado y eran difíciles "
   "de despegar, por lo que se reemplazaron por tornillos.")
 fig(FIG / "fig_23.jpeg",
-    "Figura 1. Equipo durante el proceso de armado y pruebas.", 15.0)
+    "Figura 1. Equipo durante el proceso de armado y pruebas.")
 fig(FIG / "fig_24.jpeg",
-    "Figura 2. Trabajo conjunto en el montaje y la puesta a punto.", 15.0)
+    "Figura 2. Trabajo conjunto en el montaje y la puesta a punto.")
 
 # ===================== 4. MARCO =====================
 h1("4. Marco de referencia: calidad del aire")
@@ -590,10 +655,14 @@ p("El gabinete se diseñó después de medir todos los componentes. Se planeó "
   "y los agujeros para los sensores y el cableado; luego se imprimió en 3D. "
   "Los imanes no permitían que la tapa cerrara bien y eran difíciles de "
   "despegar, por lo que se optó por tornillos.")
+p("El modelo 3D del gabinete se conserva en el repositorio: "
+  "Diseño_Hardware/Diseño_Gabinete/Gabinete para tucuman respira.stl "
+  "(216 KB). El archivo permite revisar la geometría, reproducir la "
+  "impresión y adaptar la distribución interior.")
 fig(FIG / "fig_14.jpeg",
-    "Figura 3. Gabinete: diseño y terminaciones.", 14.0)
+    "Figura 3. Gabinete: diseño y terminaciones.")
 fig(FIG / "fig_12.jpeg",
-    "Figura 4. Gabinete: montaje y distribución interior.", 12.0)
+    "Figura 4. Gabinete: montaje y distribución interior.")
 
 h2("6.4 Problemas de hardware y soluciones")
 tabla([
@@ -744,15 +813,24 @@ tabla([
     ["ip_dispositivo", "texto", "IP local actual del ESP32.", "IPv4"],
 ], cols(0.19, 0.14, 0.49, 0.18), small=True, negrita_primera=True)
 
-p("Estado verificado al 28/10/2026 (snapshot; el conteo es dinámico)")
+p(f"Estado verificado al {fmt_fecha_local(DATOS['generated_at_local'])} "
+  "(snapshot; el conteo es dinámico)")
 tabla([
     ["Métrica", "Valor"],
-    ["Filas totales", "2.836"],
-    ["Primera lectura", "05/10/2026 00:45:18 UTC"],
-    ["Última lectura", "29/10/2026 01:29:46 UTC (28/10, 22:29 en UTC−3)"],
-    ["Lecturas con coordenadas", "1.867 (65,8 %)"],
-    ["Lecturas con ip_dispositivo", "1.630 (57,5 %)"],
-    ["Filas con co2=400 y temperatura=0", "101 (3,6 %)"],
+    ["Filas totales", fmt_int(DATOS["total"])],
+    ["Primera lectura", fmt_fecha_utc(DATOS["first_created_at"])],
+    ["Última lectura", f"{fmt_fecha_utc(DATOS['last_created_at'])} "
+                      f"({fmt_fecha_local(DATOS['last_created_at'])})"],
+    ["Filas válidas para análisis",
+     f"{fmt_int(DATOS['valid'])} ({fmt_pct(DATOS['pct']['valid'])})"],
+    ["Filas históricas (co2=400, temp=0)",
+     f"{fmt_int(DATOS['legacy'])} ({fmt_pct(DATOS['pct']['legacy'])})"],
+    ["Filas fuera de rango",
+     f"{fmt_int(DATOS['invalid'])} ({fmt_pct(DATOS['pct']['invalid'])})"],
+    ["Lecturas con coordenadas",
+     f"{fmt_int(DATOS['coords'])} ({fmt_pct(DATOS['pct']['coords'])})"],
+    ["Lecturas con ip_dispositivo",
+     f"{fmt_int(DATOS['ip'])} ({fmt_pct(DATOS['pct']['ip'])})"],
 ], cols(0.55, 0.45), negrita_primera=True)
 p("La columna ip_dispositivo permite que la aplicación descubra sola la "
   "dirección de la estación en la red local y, con ella, detener el "
@@ -760,9 +838,14 @@ p("La columna ip_dispositivo permite que la aplicación descubra sola la "
   "recargar la página; el sondeo cada 15 s funciona como respaldo.")
 p("Calidad de datos")
 bullets([
-    "Las 101 filas con co2=400 y temperatura=0 provienen del valor por "
-    "defecto antiguo, cuando el ESP32 publicaba sin datos frescos del Uno. "
-    "No se eliminaron de la base; se conservan como registro histórico.",
+    f"Las {fmt_int(DATOS['legacy'])} filas con co2=400 y temperatura=0 "
+    "provienen del valor por defecto antiguo, cuando el ESP32 publicaba sin "
+    "datos frescos del Uno. No se eliminaron de la base; se conservan como "
+    "registro histórico.",
+    f"Se excluyeron {fmt_int(DATOS['invalid'])} filas con valores fuera de "
+    "rango físico (temperatura de miles de grados negativos, humedad mayor "
+    "a 100 %, UV o luz desmesurados) para el análisis descriptivo; no se "
+    "borraron de la base.",
     "Las primeras mediciones no tenían GPS; la cobertura de coordenadas fue "
     "mejorando con el firmware que conserva la última posición válida.",
     "La cobertura de ip_dispositivo es parcial porque la columna se agregó "
@@ -770,10 +853,17 @@ bullets([
     "Un CO₂ de 400 ppm en aire limpio es un valor real; el problema era el "
     "400 usado como valor inicial cuando no había lectura.",
 ])
-p("Ejemplo de la última fila (id 2838): CO₂ 400 ppm; CO 16,36 ppm; PM2.5 "
-  "40 µg/m³; temperatura 25,4 °C; humedad 64 %; presión 969 hPa; UV "
-  "0,5 mW/cm²; luz 11 lux; latitud −26,83979; longitud −65,29345; IP "
-  "192.168.18.47.")
+_ult = DATOS["last_valid"]
+p(f"Ejemplo de la última fila válida (id {_ult['id']}): CO₂ "
+  f"{fmt_dec(_ult['co2'], 0)} ppm; CO {fmt_dec(_ult['co'], 2)} ppm; PM2.5 "
+  f"{fmt_dec(_ult['pm25'], 0)} µg/m³; temperatura "
+  f"{fmt_dec(_ult['temperatura'], 1)} °C; humedad "
+  f"{fmt_dec(_ult['humedad'], 0)} %; presión {fmt_dec(_ult['presion'], 0)} "
+  f"hPa; UV {fmt_dec(_ult['uv'], 1)} mW/cm²; luz "
+  f"{fmt_dec(_ult['luz'], 0)} lux; latitud "
+  f"{fmt_dec(_ult['latitud'], 5)}; longitud "
+  f"{fmt_dec(_ult['longitud'], 5)}; IP "
+  f"{_ult.get('ip_dispositivo') or '—'}.")
 
 # ===================== 10. PANEL =====================
 h1("10. Panel web")
@@ -1067,19 +1157,109 @@ tabla([
 
 # ===================== 14. RESULTADOS =====================
 h1("14. Resultados y análisis de datos")
-p("Al 28/10/2026 la base contiene 2.836 mediciones, con 1.867 lecturas con "
-  "coordenadas y 1.630 con IP del dispositivo. La última fila (id 2838) "
-  "registró CO₂ 400 ppm, CO 16,36 ppm, PM2.5 40 µg/m³, temperatura 25,4 °C, "
-  "humedad 64 %, presión 969 hPa, UV 0,5 mW/cm² y luz 11 lux.")
-p("Con esos valores, el subíndice de PM2.5 cae en el tramo 35,5–55,4 → "
-  "101–150; para 40 µg/m³ el ICA estimado es ≈112, categoría «Dañina para "
-  "grupos sensibles». El CO, con 16,36 ppm, queda en el tramo 4,5–34,9 → "
-  "51–100 (≈70). El ICA global es el peor: ≈112, dominado por PM2.5. Es un "
-  "ejemplo de cálculo de una sola fila, no una tendencia.")
-p("Calidad y limitaciones de los datos")
+_s = DATOS["stats"]
+_e = DATOS["exceed"]
+_m = DATOS["max_daily"]
+p(f"Al {fmt_fecha_local(DATOS['generated_at_local'])} la base contiene "
+  f"{fmt_int(DATOS['total'])} filas. Después de separar "
+  f"{fmt_int(DATOS['legacy'])} filas históricas y "
+  f"{fmt_int(DATOS['invalid'])} filas con valores fuera de rango, quedan "
+  f"{fmt_int(DATOS['valid'])} lecturas válidas para el análisis descriptivo "
+  f"({fmt_pct(DATOS['pct']['valid'])} del total). De ellas, "
+  f"{fmt_int(DATOS['coords'])} tienen coordenadas GPS y "
+  f"{fmt_int(DATOS['ip'])} registran IP del dispositivo.")
+p(f"El período analizado va del {fmt_fecha_utc(DATOS['first_created_at'])} "
+  f"al {fmt_fecha_utc(DATOS['last_created_at'])}. La tabla siguiente resume "
+  "la distribución de las variables en las lecturas válidas.")
+h2("14.1 Estadísticas descriptivas")
+tabla([
+    ["Variable", "Unidad", "Mín.", "Mediana", "P75", "Máx."],
+    ["CO₂", "ppm", fmt_var("co2", _s["co2"]["min"]),
+     fmt_var("co2", _s["co2"]["median"]), fmt_var("co2", _s["co2"]["p75"]),
+     fmt_var("co2", _s["co2"]["max"])],
+    ["CO", "ppm", fmt_var("co", _s["co"]["min"]),
+     fmt_var("co", _s["co"]["median"]), fmt_var("co", _s["co"]["p75"]),
+     fmt_var("co", _s["co"]["max"])],
+    ["PM2.5", "µg/m³", fmt_var("pm25", _s["pm25"]["min"]),
+     fmt_var("pm25", _s["pm25"]["median"]),
+     fmt_var("pm25", _s["pm25"]["p75"]), fmt_var("pm25", _s["pm25"]["max"])],
+    ["Temperatura", "°C", fmt_var("temperatura", _s["temperatura"]["min"]),
+     fmt_var("temperatura", _s["temperatura"]["median"]),
+     fmt_var("temperatura", _s["temperatura"]["p75"]),
+     fmt_var("temperatura", _s["temperatura"]["max"])],
+    ["Humedad", "%", fmt_var("humedad", _s["humedad"]["min"]),
+     fmt_var("humedad", _s["humedad"]["median"]),
+     fmt_var("humedad", _s["humedad"]["p75"]),
+     fmt_var("humedad", _s["humedad"]["max"])],
+    ["Presión", "hPa", fmt_var("presion", _s["presion"]["min"]),
+     fmt_var("presion", _s["presion"]["median"]),
+     fmt_var("presion", _s["presion"]["p75"]),
+     fmt_var("presion", _s["presion"]["max"])],
+    ["UV", "mW/cm²", fmt_var("uv", _s["uv"]["min"]),
+     fmt_var("uv", _s["uv"]["median"]), fmt_var("uv", _s["uv"]["p75"]),
+     fmt_var("uv", _s["uv"]["max"])],
+    ["Luz", "lux", fmt_var("luz", _s["luz"]["min"]),
+     fmt_var("luz", _s["luz"]["median"]), fmt_var("luz", _s["luz"]["p75"]),
+     fmt_var("luz", _s["luz"]["max"])],
+], cols(0.24, 0.14, 0.14, 0.16, 0.14, 0.18), small=True,
+   negrita_primera=True)
+p("Los percentiles resumen las lecturas válidas. La mediana de CO₂ igual a "
+  "400 ppm coincide con el valor de referencia del sensor; los valores altos "
+  "se asocian a menor renovación de aire. La temperatura, la humedad y la "
+  "presión se mantuvieron en rangos compatibles con ambientes interiores y "
+  "exteriores de la zona.")
+
+h2("14.2 Interpretación")
 bullets([
-    "101 filas (3,6 %) tienen co2=400 y temperatura=0 por el valor inicial "
-    "antiguo; se conservan como registro histórico y no se limpiaron.",
+    f"PM2.5: mediana {fmt_var('pm25', _s['pm25']['median'])} µg/m³ y P75 "
+    f"{fmt_var('pm25', _s['pm25']['p75'])} µg/m³. El "
+    f"{fmt_pct(_e['pm25']['pct'])} de las lecturas válidas superó "
+    "35 µg/m³; el día con mayor mediana diaria fue el "
+    f"{fmt_dia(_m['pm25']['date'])} "
+    f"({fmt_var('pm25', _m['pm25']['value'])} µg/m³).",
+    f"CO: mediana {fmt_var('co', _s['co']['median'])} ppm y P75 "
+    f"{fmt_var('co', _s['co']['p75'])} ppm. El "
+    f"{fmt_pct(_e['co']['pct'])} superó 35 ppm; la mayor mediana diaria fue "
+    f"el {fmt_dia(_m['co']['date'])} "
+    f"({fmt_var('co', _m['co']['value'])} ppm).",
+    f"CO₂: mediana {fmt_var('co2', _s['co2']['median'])} ppm y P75 "
+    f"{fmt_var('co2', _s['co2']['p75'])} ppm. El "
+    f"{fmt_pct(_e['co2']['pct'])} superó 1000 ppm; la mayor mediana diaria "
+    f"fue el {fmt_dia(_m['co2']['date'])} "
+    f"({fmt_var('co2', _m['co2']['value'])} ppm).",
+    "Temperatura, humedad y presión: los rangos observados son estables y "
+    "sirven como contexto meteorológico; no se usan para diagnosticar "
+    "confort ni salud.",
+    "UV y luz: el UV máximo fue "
+    f"{fmt_var('uv', _s['uv']['max'])} mW/cm² y la luz llegó a "
+    f"{fmt_var('luz', _s['luz']['max'])} lux. Son valores de referencia, no "
+    "una evaluación de exposición.",
+])
+fig(FIG / "datos_pm25_co.png",
+    "Figura 5. Mediana diaria de PM2.5 y CO en los días con registro. Las "
+    "líneas punteadas marcan 35 µg/m³ y 35 ppm.")
+fig(FIG / "datos_excedencias.png",
+    "Figura 6. Porcentaje de lecturas válidas que superan cada umbral de "
+    "referencia.")
+p("En conjunto, la mayoría de las lecturas se mantuvo por debajo de los "
+  "umbrales, pero aparecen episodios puntuales de PM2.5 y CO que justifican "
+  "seguir midiendo y ventilar. El 10/10 y el 20/10 concentraron las medianas "
+  "diarias más altas de PM2.5; el 17/10, la de CO. El CO₂ muestra una base "
+  "de 400 ppm con picos de hasta 796 ppm de mediana diaria, compatibles con "
+  "momentos de menor ventilación.")
+p("Ejemplo de ICA: una lectura con PM2.5 40 µg/m³ y CO 16,36 ppm da un ICA "
+  "estimado ≈112, dominado por PM2.5. Es un cálculo ilustrativo de una sola "
+  "fila; el ICA de la EPA se basa en promedios de 24 h y 8 h, por lo que no "
+  "reemplaza una evaluación sanitaria.")
+
+h2("14.3 Calidad y limitaciones")
+bullets([
+    f"{fmt_int(DATOS['legacy'])} filas ({fmt_pct(DATOS['pct']['legacy'])}) "
+    "tienen co2=400 y temperatura=0 por el valor inicial antiguo; se "
+    "conservan como registro histórico y no se limpiaron.",
+    f"{fmt_int(DATOS['invalid'])} filas ({fmt_pct(DATOS['pct']['invalid'])}) "
+    "quedaron fuera de los rangos físicos y se excluyeron del análisis; no "
+    "se borraron de la base.",
     "La cobertura de GPS e IP es parcial por el orden de incorporación de "
     "las funciones; no invalida las mediciones, pero limita el mapa y el "
     "control remoto en las filas antiguas.",
@@ -1090,11 +1270,11 @@ bullets([
     "Los valores de PM2.5 y CO son lecturas instantáneas, mientras que el "
     "ICA de la EPA se basa en promedios (24 h y 8 h).",
 ])
-p("El sistema cumplió el objetivo de adquirir, publicar y visualizar datos "
-  "reales de forma continua. La base supera las 2.800 filas y el panel "
-  "responde en GitHub Pages; la alarma local y el control remoto quedan "
-  "verificados a nivel de firmware y endpoints, con la prueba de campo "
-  "pendiente.")
+p(f"El sistema cumplió el objetivo de adquirir, publicar y visualizar datos "
+  f"reales de forma continua. La base reúne {fmt_int(DATOS['total'])} filas "
+  "y el panel responde en GitHub Pages; la alarma local y el control remoto "
+  "quedan verificados a nivel de firmware y endpoints, con la prueba de "
+  "campo pendiente.")
 
 # ===================== 15. DESPLIEGUE =====================
 h1("15. Despliegue y uso")
@@ -1257,11 +1437,11 @@ p("El ESP32 procesa la trama con una lectura de formato tipo "
 # ===================== ANEXO D =====================
 h1("Anexo D — Registro fotográfico")
 p("Este anexo reúne todo el material gráfico disponible: 16 diagramas, "
-  "esquemas y capturas de la documentación del equipo (D.1–D.16) y las 43 "
-  "fotografías del archivo del proyecto (F.01–F.43). Las figuras 1 a 4 del "
-  "cuerpo son una selección de este mismo conjunto. Las fotografías fueron "
-  "tomadas por Tatiana Maturano y el equipo; el orden reproduce la secuencia "
-  "de los archivos originales.")
+  "esquemas y capturas de la documentación del equipo y las 43 fotografías "
+  "del archivo del proyecto (F.01–F.43). Las figuras 1 a 4 del cuerpo son "
+  "una selección de este mismo conjunto. Las fotografías fueron tomadas por "
+  "Tatiana Maturano y el equipo; el orden reproduce la secuencia de los "
+  "archivos originales.")
 h2("Diagramas, esquemas y capturas")
 _diag = [
     "Pruebas iniciales de los sensores.",
@@ -1282,31 +1462,31 @@ _diag = [
     "Conexionado de sensores.",
 ]
 fig_grid([
-    (FIG / f"fig_{i:02d}.jpeg", f"D.{i}. {cap}")
-    for i, cap in enumerate(_diag, 1)
-], cols_n=3)
+    (FIG / f"fig_{i:02d}.jpeg", "")
+    for i in range(1, len(_diag) + 1)
+], cols_n=2, captions=False)
 
 h2("Proceso de armado y pruebas — 15/10/2026")
 fig_grid([
     (FIG / f"foto_{i:02d}.jpeg", f"F.{i:02d}. Registro fotográfico del proceso.")
     for i in range(1, 41)
-], cols_n=3)
+], cols_n=2)
 h2("Puesta a punto — 17/10/2026")
 fig_grid([
     (FIG / f"foto_{i:02d}.jpeg", f"F.{i:02d}. Registro fotográfico del proceso.")
     for i in range(41, 43)
-], cols_n=3)
+], cols_n=2)
 h2("Montaje final — 26/10/2026")
 fig_grid([
     (FIG / "foto_43.jpeg", "F.43. Registro fotográfico del proceso."),
-], cols_n=3)
+], cols_n=2)
 
 # ===================== ANEXO E =====================
 h1("Anexo E — Material complementario")
-p("Los siguientes materiales se conservan en la carpeta "
-  "Informes_anteriores/ o en la carpeta de recursos del equipo. Los videos "
-  "no se incluyen en el repositorio por su tamaño, pero se mencionan para "
-  "que el material quede identificado.")
+p("Los siguientes materiales se conservan en Informes_anteriores/ o en el "
+  "equipo. El video no se incluye en el repositorio por su tamaño; se "
+  "adjunta al correo de entrega y se menciona aquí para que el material "
+  "quede identificado.")
 tabla([
     ["Material", "Ubicación / observación"],
     ["Documentación del equipo (10 pp., 15 MB)",
@@ -1317,20 +1497,23 @@ tabla([
      "del Anexo D del informe del 18/10/2026."],
     ["Informe técnico anterior (18/10/2026)",
      "Informes_anteriores/Informe_Tucuman_Respira_2026-10-18.pdf."],
-    ["Video 2026-10-15 (8,6 MB)",
-     "WhatsApp Video 2026-10-15 at 10.17.47.mp4, en la carpeta recursos. "
-     "No incluido en el repositorio."],
-    ["Video 2026-10-17 (76 MB)",
-     "WhatsApp Video 2026-10-17 at 21.55.01.mp4, en la carpeta recursos. "
-     "No incluido en el repositorio."],
+    ["Síntesis para el concurso (8–10 pp.)",
+     "Sintesis_Concurso_Tucuman_Respira.pdf. Resume este informe y remite a "
+     "sus secciones para el detalle completo."],
+    ["Video del proyecto (2:49, 35 MB)",
+     "WhatsApp Video 2026-10-29 at 11.16.07.mp4. Muestra la estación y las "
+     "lecturas de todos los sensores; se adjunta al correo de entrega. No "
+     "incluido en el repositorio."],
+    ["Modelo 3D del gabinete (216 KB)",
+     "Diseño_Hardware/Diseño_Gabinete/Gabinete para tucuman respira.stl."],
     ["Fotografías",
      "43 fotografías en figuras/ (foto_01–foto_43) y 16 diagramas, esquemas "
-     "y capturas (fig_01–fig_16); el material original queda en la carpeta "
-     "recursos del equipo."],
+     "y capturas (fig_01–fig_16); los originales quedan en el equipo."],
 ], cols(0.30, 0.70), negrita_primera=True)
-p("Fin del informe — «Tucumán Respira», Escuela Técnica N°5, 28/10/2026. "
-  "Documento consolidado por Benicio Gael Pieroni para el equipo del "
-  "proyecto.")
+p(f"Fin del informe — «Tucumán Respira», Escuela Técnica N°5, "
+  f"{DATOS['fecha_corta']}. Documento consolidado por Benicio Gael Pieroni "
+  "para el equipo del proyecto. La síntesis para el concurso se entrega por "
+  "separado.")
 
 # ===================== BUILD =====================
 def main():
