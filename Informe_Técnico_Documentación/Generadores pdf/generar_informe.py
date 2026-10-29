@@ -25,6 +25,7 @@ from reportlab.platypus import (
 BASE = Path(__file__).resolve().parent
 SALIDA = str(BASE / "Informe_Tucuman_Respira.pdf")
 FIG = BASE / "figuras"
+CIRCUITO = BASE.parent / "Diseño_Circuito"
 DATOS_PATH = BASE / "datos_resumen.json"
 if not DATOS_PATH.exists():
     raise SystemExit("Falta datos_resumen.json; ejecutá actualizar_datos.py.")
@@ -219,7 +220,7 @@ def fig(path, caption, width_cm=16.5, max_h_mm=115):
         return
     with PILImage.open(path) as im:
         w, h = im.size
-    scale = min(width_cm * mm / w, max_h_mm * mm / h)
+    scale = min(width_cm * 10 * mm / w, max_h_mm * mm / h)
     rl = RLImage(str(path), width=w * scale, height=h * scale)
     rl.hAlign = "CENTER"
     story.append(KeepTogether([
@@ -357,6 +358,7 @@ for t in [
     "Anexo C — Trama de comunicación Uno → ESP32",
     "Anexo D — Registro fotográfico",
     "Anexo E — Material complementario",
+    "Anexo F — Esquema de conexiones",
 ]:
     story.append(Paragraph(esc(t), S["indice"]))
 story.append(PageBreak())
@@ -637,6 +639,9 @@ tabla([
     ["Zumbador", "GPIO 23", "Zumbador → GND",
      "Alarma local."],
 ], cols(0.18, 0.24, 0.28, 0.30), small=True, negrita_primera=True)
+p("La conexión completa por pines, con la distribución de alimentación de "
+  "5 V, los divisores de nivel y los pines sin conectar, se documenta en el "
+  "Anexo F y en las láminas A3 de la carpeta Diseño_Circuito/.")
 
 h2("6.3 Pruebas, calibración y armado")
 p("Cada componente se probó por separado en el protoboard con un código "
@@ -1509,7 +1514,31 @@ tabla([
     ["Fotografías",
      "43 fotografías en figuras/ (foto_01–foto_43) y 16 diagramas, esquemas "
      "y capturas (fig_01–fig_16); los originales quedan en el equipo."],
+    ["Esquema de conexiones (A3 + A4)",
+     "Diseño_Circuito/Esquema_Conexiones_Tucuman_Respira.pdf. Diagrama de "
+     "interconexión, matriz de pines y notas de protección; se reproduce en "
+     "el Anexo F."],
 ], cols(0.30, 0.70), negrita_primera=True)
+
+story.append(PageBreak())
+
+# ===================== ANEXO F =====================
+h1("Anexo F — Esquema de conexiones")
+p("El esquema se elaboró a partir de los pines efectivamente usados por los "
+  "firmwares y de la alimentación común de 5 V. Se entrega en dos formatos: "
+  "A3 con dos hojas (diagrama de interconexión y matriz de pines con notas "
+  "de montaje) y A4 con el resumen de conexiones para consulta rápida.")
+fig(CIRCUITO / "Esquema_Conexiones_Tucuman_Respira_A4.png",
+    "Figura F.1. Resumen A4 del esquema de conexiones: alimentación de 5 V, "
+    "entradas analógicas, enlaces UART, I²C y control de la alarma.",
+    width_cm=16.5, max_h_mm=232)
+p("La versión A3 completa se conserva en "
+  "Diseño_Circuito/Esquema_Conexiones_Tucuman_Respira.pdf (dos hojas de "
+  "420 × 297 mm), junto con los archivos SVG y PNG de cada hoja y el "
+  "generador reproducible. La matriz consigna, para cada conexión, el pin "
+  "de origen, el pin de destino y la observación técnica; las hojas 1 y 2 "
+  "incluyen además las notas de protección de niveles lógicos, la "
+  "desacoplamiento de la fuente y los pines que quedan sin conectar.")
 p(f"Fin del informe — «Tucumán Respira», Escuela Técnica N°5, "
   f"{DATOS['fecha_corta']}. Documento consolidado por Benicio Gael Pieroni "
   "para el equipo del proyecto. La síntesis para el concurso se entrega por "

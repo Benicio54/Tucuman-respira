@@ -202,7 +202,7 @@ def fig(path, caption, width_cm=16.5, max_h_mm=105):
         return
     with PILImage.open(path) as im:
         w, h = im.size
-    scale = min(width_cm * mm / w, max_h_mm * mm / h)
+    scale = min(width_cm * 10 * mm / w, max_h_mm * mm / h)
     rl = RLImage(str(path), width=w * scale, height=h * scale)
     rl.hAlign = "CENTER"
     story.append(KeepTogether([
@@ -352,6 +352,11 @@ tabla([
     ["ML8511 + LDR", "Radiación UV y luz ambiental."],
     ["NEO-6M", "Posición GPS."],
 ], cols(0.28, 0.72), negrita_primera=True)
+p("Las conexiones por pines se documentaron en un esquema propio: "
+  "alimentación única de 5 V, entradas analógicas del Uno, enlaces UART con "
+  "el ESP32, I²C con el BME280 y control del PMS5003 y del zumbador. El "
+  "Anexo F del informe técnico incluye el diagrama y la matriz completa de "
+  "conexiones; las láminas A3 se conservan en Diseño_Circuito/.")
 p("El gabinete se diseñó después de medir todos los componentes: distribución "
   "interior, tapa, paredes y agujeros para sensores y cableado. Se imprimió "
   "en 3D; los imanes previstos para la tapa no cerraban bien y se "
@@ -613,6 +618,9 @@ tabla([
      "para tucuman respira.stl (216 KB)."],
     ["Registro fotográfico", "43 fotos y 16 diagramas en el Anexo D del "
      "informe técnico."],
+    ["Esquema de conexiones", "Diseño_Circuito/Esquema_Conexiones_Tucuman_"
+     "Respira.pdf; diagrama A3 de 2 hojas y resumen A4, reproducido en el "
+     "Anexo F del informe técnico."],
 ], cols(0.30, 0.70), small=True, negrita_primera=True)
 story.append(PageBreak())
 
@@ -638,6 +646,7 @@ tabla([
     ["Dificultades y soluciones", "§6.4 y §13"],
     ["Equipo y roles", "§3"],
     ["Registro fotográfico", "Anexo D"],
+    ["Esquema de conexiones", "Anexo F y carpeta Diseño_Circuito/"],
     ["Video y materiales", "Anexo E"],
 ], cols(0.55, 0.45), small=True, negrita_primera=True)
 h2("Checklist de entrega")
