@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tucumán Respira - Estación de monitoreo de calidad del aire y clima en tiempo real.">
+  <meta name="theme-color" content="#020617">
+  <title>Tucumán Respira - Monitoreo Ambiental</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2310b981'/><path d='M22 40h40M22 52h30M22 64h24' stroke='white' stroke-width='7' stroke-linecap='round'/></svg>">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <button type="button" class="brand" id="brand-refresh" aria-label="Actualizar página, Tucumán Respira Monitoreo ambiental IoT" title="Actualizar página">
+        <span class="brand-logo" aria-hidden="true"><i data-lucide="wind"></i></span>
+        <span class="brand-text">
+          <strong>Tucumán Respira</strong>
+          <small>Monitoreo ambiental IoT</small>
+        </span>
+        <span class="visually-hidden">Actualizar página</span>
+      </button>
+
+      <div class="header-actions">
+        <div id="connection-badge" class="conn-badge" role="status" aria-live="polite" title="Estado de la conexión">
+          <span id="conn-dot" class="conn-dot is-loading"></span>
+          <span id="last-update">Conectando…</span>
+        </div>
+
+        <button id="btn-download" class="icon-btn" type="button" aria-label="Descargar datos" title="Descargar datos">
+          <i data-lucide="download"></i>
+          <span class="visually-hidden">Descargar datos</span>
+        </button>
+        <button id="btn-theme" class="icon-btn" type="button" aria-label="Cambiar tema" aria-pressed="false" title="Cambiar tema">
+          <i id="theme-icon" data-lucide="sun"></i>
+        </button>
+        <button id="btn-info" class="icon-btn" type="button" aria-label="Información del sistema" title="Información del sistema">
+          <i data-lucide="info"></i>
+          <span class="visually-hidden">Información del sistema</span>
+        </button>
+        <a id="btn-github" class="icon-btn" href="https://github.com/Benicio54/Tucuman-respira" target="_blank" rel="noopener noreferrer" aria-label="Código en GitHub" title="Código en GitHub">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.12-.31-.54-1.53.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.18.77.84 1.24 1.91 1.24 3.23 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"></path></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="offline-alert" class="offline-alert" role="alert" hidden>
+      <i data-lucide="alert-triangle"></i>
+      <span id="offline-text"></span>
+      <button type="button" id="offline-close" class="offline-close" aria-label="Cerrar aviso">✕</button>
+    </div>
+    <div id="load-error" class="load-error" role="alert" hidden>
+      <span id="load-error-text">No se pudieron cargar las mediciones.</span>
+      <button id="load-error-retry" type="button" class="btn btn-primary">Reintentar</button>
+    </div>
+  </div>
+
+  <main class="container main">
+
+    <section class="hero">
+      <article class="air-banner lvl-neutral" id="air-banner">
+        <div class="air-main">
+          <span class="air-tag"><i data-lucide="activity"></i> ICA EPA parcial · PM2.5 · PM10 · CO</span>
+          <div class="air-number-row">
+            <span class="air-number" id="aqi-number">--</span>
+            <span class="air-category" id="aqi-category">Sin datos</span>
+          </div>
+          <p class="aqi-method" id="aqi-method">Esperando mediciones…</p>
+          <h1 class="air-title" id="aqi-status">Cargando datos…</h1>
+          <p class="air-desc" id="air-description">Esperando las primeras mediciones de la estación.</p>
+          <div id="aqi-breakdown" class="aqi-breakdown" aria-label="Subíndices por contaminante"></div>
+          <div id="aqi-legend" class="aqi-legend" aria-label="Escala del ICA"></div>
+        </div>
+
+        <div class="air-side">
+          <div class="alarm-box lvl-neutral" id="alarm-box">
+            <span class="alarm-label">Alerta del equipo · lectura instantánea</span>
+            <span class="alarm-value"><span class="alarm-dot" id="alarm-dot"></span><span id="alarm-text">SIN DATOS</span></span>
+            <div class="alarm-actions">
+              <button id="btn-silenciar" type="button" class="btn-alarm">
+                <i data-lucide="bell-off"></i> Detener zumbador
+              </button>
+              <span id="silencio-status" class="alarm-status" aria-live="polite"></span>
+            </div>
+          </div>
+
+          <div class="health-box">
+            <i data-lucide="heart-pulse"></i>
+            <div>
+              <span class="health-label">Recomendación sanitaria</span>
+              <p id="health-text">Sin información suficiente para dar una recomendación.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="summary-card">
+        <div class="card-head">
+          <div>
+            <h2>Resumen reciente</h2>
+            <p id="summary-subtitle">Sin lecturas</p>
+          </div>
+          <i data-lucide="bar-chart-2"></i>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span>Temp. mín / máx</span>
+            <strong><span id="kpi-temp-min">--</span> / <span id="kpi-temp-max">--</span></strong>
+          </div>
+          <div class="summary-item">
+            <span>PM2.5 pico</span>
+            <strong id="kpi-pm25-max">--</strong>
+          </div>
+          <div class="summary-item">
+            <span>CO₂ promedio</span>
+            <strong id="kpi-co2-avg">--</strong>
+          </div>
+          <div class="summary-item">
+            <span>Humedad promedio</span>
+            <strong id="kpi-hum-avg">--</strong>
+          </div>
+        </div>
+        <div class="summary-foot">
+          <span>Lecturas analizadas</span>
+          <strong id="kpi-total">--</strong>
+        </div>
+        <div class="summary-updated">
+          <i data-lucide="clock"></i>
+          <span>Última actualización: <strong id="last-reading">--</strong></span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Sensores</h2>
+        <p>Toca una tarjeta para ver su histórico de últimas mediciones.</p>
+      </div>
+      <div id="sensors-grid" class="sensors-grid" aria-live="polite"></div>
+      <div id="sensors-empty" class="empty-state" hidden>
+        <strong>Todavía no hay mediciones</strong>
+        <span>La estación se conectará automáticamente cuando publique la primera lectura.</span>
+      </div>
+    </section>
+
+    <section class="section bottom-grid">
+      <article class="panel chart-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Tendencia en el tiempo</h2>
+            <p id="trend-subtitle">PM1.0, PM2.5 y PM10 (µg/m³)</p>
+          </div>
+          <div id="trend-tabs" class="segmented" role="tablist" aria-label="Métrica del gráfico"></div>
+        </div>
+        <div class="chart-wrap" id="trend-panel" role="tabpanel" aria-labelledby="trend-tab-particles" tabindex="0">
+          <div id="trend-empty" class="empty-state chart-empty" hidden>
+            <strong>Sin datos para graficar</strong>
+            <span>El gráfico aparecerá con la primera lectura.</span>
+          </div>
+          <canvas id="trend-chart" aria-label="Gráfico de tendencia de mediciones"></canvas>
+        </div>
+      </article>
+
+      <article class="panel map-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Ubicación de la estación</h2>
+            <p id="gps-coords">GPS sin señal</p>
+          </div>
+          <div class="panel-head-actions">
+            <span id="gps-badge" class="badge badge-muted">Sin señal</span>
+            <button type="button" id="map-center" class="icon-btn map-center" title="Centrar en la última ubicación de la estación" aria-label="Centrar en la última ubicación de la estación" disabled>
+              <i data-lucide="locate-fixed"></i>
+              <span class="visually-hidden">Centrar en la última ubicación de la estación</span>
+            </button>
+          </div>
+        </div>
+        <div id="map" class="map"></div>
+        <div class="map-foot">
+          <span id="gps-note"></span>
+          <a id="gmaps-link" class="link" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver en Google Maps</a>
+        </div>
+      </article>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>Tucumán Respira</strong>
+        <span>· Estación de monitoreo ambiental IoT</span>
+      </div>
+    </div>
+  </footer>
+
+  <div id="modal-sensor" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="sensor-modal-title" tabindex="-1">
+      <div class="modal-head">
+        <div>
+          <h2 id="sensor-modal-title">Histórico</h2>
+          <p id="sensor-modal-subtitle"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-scroll">
+        <div class="modal-stats">
+          <div><span>Actual</span><strong id="stats-current">--</strong></div>
+          <div><span>Mínimo</span><strong id="stats-min">--</strong></div>
+          <div><span>Promedio</span><strong id="stats-avg">--</strong></div>
+          <div><span>Máximo</span><strong id="stats-max">--</strong></div>
+        </div>
+      <div class="modal-toolbar">
+        <span>Puntos visibles:</span>
+        <div id="modal-range" class="segmented segmented-sm" role="group" aria-label="Cantidad de puntos"></div>
+      </div>
+      <div class="chart-wrap chart-wrap-sm">
+        <canvas id="sensor-chart" aria-label="Gráfico histórico del sensor"></canvas>
+      </div>
+      <p id="sensor-source" class="source-note"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-download" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-labelledby="download-title" tabindex="-1">
+      <div class="modal-head">
+        <div>
+          <h2 id="download-title">Descargar datos</h2>
+          <p>Información pública de la estación.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-scroll">
+        <div class="dl-grid">
+        <div class="field">
+          <label for="dl-format-toggle">Formato</label>
+          <div class="dropdown" data-dropdown>
+            <button type="button" id="dl-format-toggle" class="select dropdown-toggle" aria-haspopup="listbox" aria-expanded="false" aria-controls="dl-format-menu">
+              <span class="dropdown-value">CSV (planilla)</span>
+            </button>
+            <ul id="dl-format-menu" class="dropdown-menu" role="listbox" aria-labelledby="dl-format-toggle" hidden>
+              <li role="option" tabindex="-1" aria-selected="true" class="dropdown-option is-selected" data-value="csv">CSV (planilla)</li>
+              <li role="option" tabindex="-1" aria-selected="false" class="dropdown-option" data-value="json">JSON (datos crudos)</li>
+            </ul>
+            <input type="hidden" id="dl-format" value="csv">
+          </div>
+        </div>
+        <div class="field">
+          <label for="dl-range-toggle">Cantidad de registros</label>
+          <div class="dropdown" data-dropdown>
+            <button type="button" id="dl-range-toggle" class="select dropdown-toggle" aria-haspopup="listbox" aria-expanded="false" aria-controls="dl-range-menu">
+              <span class="dropdown-value">Últimas 100</span>
+            </button>
+            <ul id="dl-range-menu" class="dropdown-menu" role="listbox" aria-labelledby="dl-range-toggle" hidden>
+              <li role="option" tabindex="-1" aria-selected="true" class="dropdown-option is-selected" data-value="100">Últimas 100</li>
+              <li role="option" tabindex="-1" aria-selected="false" class="dropdown-option" data-value="500">Últimas 500</li>
+              <li role="option" tabindex="-1" aria-selected="false" class="dropdown-option" data-value="1000">Últimas 1000</li>
+              <li role="option" tabindex="-1" aria-selected="false" class="dropdown-option" data-value="custom">Personalizado</li>
+              <li role="option" tabindex="-1" aria-selected="false" class="dropdown-option" data-value="all">Todas</li>
+            </ul>
+            <input type="hidden" id="dl-range" value="100">
+          </div>
+        </div>
+        <div class="field" id="dl-custom-field" hidden>
+          <label for="dl-custom">Cantidad exacta</label>
+          <input id="dl-custom" class="select" type="number" min="1" step="1" placeholder="Ej. 250">
+        </div>
+      </div>
+      <button id="dl-confirm" type="button" class="btn btn-primary">
+        <i data-lucide="download"></i> Descargar
+      </button>
+      <p id="download-feedback" class="form-note" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-info" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-labelledby="info-title" tabindex="-1">
+      <div class="modal-head">
+        <div>
+          <h2 id="info-title">Acerca del sistema</h2>
+          <p>Fuentes y criterios de referencia.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-scroll">
+        <div class="info-body">
+        <p>Tucumán Respira es una estación de monitoreo ambiental que publica sus mediciones en tiempo real. Los datos se almacenan en una base de datos en la nube y se muestran aquí de forma abierta.</p>
+        <h3>Criterios de referencia</h3>
+        <ul id="info-sources"></ul>
+        <p class="source-note">El ICA es un cálculo <strong>parcial</strong> de la EPA: usa PM2.5 y PM10 (promedio de 24 h) y CO (promedio de 8 h). La estación no mide O₃, NO₂ ni SO₂, por lo que el índice puede subestimar la contaminación real. Se exige una cobertura mínima del 75 % (18/24 h en PM y 6/8 h en CO); si no se alcanza, se muestra el ICA instantáneo rotulado. PM1.0 se informa con una escala propia y no entra al ICA.</p>
+        <p class="source-note">Los colores corresponden a las categorías oficiales de la EPA (buena, moderada, dañina para grupos sensibles, dañina, muy dañina y peligrosa). El zumbador del equipo sigue la lectura instantánea con alarma en ICA &gt; 100 y apagado en ICA ≤ 80.</p>
+        <h3>Privacidad</h3>
+        <p>La aplicación es de solo lectura sobre los datos públicos de la estación. La clave de acceso usada es una clave pública de solo lectura protegida por políticas del servidor.</p>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="aqi.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>

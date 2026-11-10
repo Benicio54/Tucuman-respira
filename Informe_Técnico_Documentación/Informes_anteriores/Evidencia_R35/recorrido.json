@@ -1,0 +1,194 @@
+{
+  "fecha": "2026-11-10T00:23:27.647Z",
+  "total": 31,
+  "pass": 31,
+  "fail": 0,
+  "resultados": [
+    {
+      "id": "carga-tarjetas",
+      "desc": "las 10 tarjetas de sensor reemplazan al esqueleto",
+      "pass": true,
+      "detail": "tarjetas: 10"
+    },
+    {
+      "id": "carga-sin-vacio",
+      "desc": "el estado vacío queda oculto con datos",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "carga-sin-vacio-grafico",
+      "desc": "el estado vacío del gráfico queda oculto",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "carga-sin-error",
+      "desc": "el banner de error queda oculto",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tab-header",
+      "desc": "Tab alcanza tema, descarga e info del encabezado",
+      "pass": true,
+      "detail": "brand-refresh,btn-download,btn-theme,btn-info,btn-github,offline-close,btn-silenciar,trend-tab-particles,trend-panel,map-center,map,gmaps-link"
+    },
+    {
+      "id": "tab-tarjetas",
+      "desc": "Tab alcanza las tarjetas de sensor",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "foco-visible",
+      "desc": "todas las paradas de Tab (excepto body al final) tienen foco visible",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "id": "tab-recorre",
+      "desc": "el recorrido de Tab pasa por al menos 40 controles",
+      "pass": true,
+      "detail": "paradas: 26"
+    },
+    {
+      "id": "tabs-flecha",
+      "desc": "ArrowRight mueve la selección del tab y actualiza ARIA",
+      "pass": true,
+      "detail": "{\"activo\":\"gases\",\"sel\":\"true\",\"tidx\":0,\"panel\":\"trend-tab-gases\"}"
+    },
+    {
+      "id": "tabs-end",
+      "desc": "End salta al último tab",
+      "pass": true,
+      "detail": "radiation"
+    },
+    {
+      "id": "modal-sensor-abre",
+      "desc": "Enter sobre la tarjeta abre el modal con el foco dentro",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "modal-trap",
+      "desc": "25 Tab seguidos no escapan del modal",
+      "pass": true,
+      "detail": "dentro: 25"
+    },
+    {
+      "id": "modal-sensor-escape",
+      "desc": "Escape cierra el modal y devuelve el foco a la tarjeta",
+      "pass": true,
+      "detail": "{\"cerrado\":true,\"foco\":\"sensor-card lvl-good\"}"
+    },
+    {
+      "id": "modal-descarga-abre",
+      "desc": "el modal de descarga abre con foco",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "dropdown-abre",
+      "desc": "ArrowDown abre el dropdown y enfoca una opción",
+      "pass": true,
+      "detail": "{\"exp\":\"true\",\"visible\":true,\"focoEnOpcion\":true}"
+    },
+    {
+      "id": "dropdown-selecciona",
+      "desc": "Enter selecciona, cierra y devuelve el foco al toggle",
+      "pass": true,
+      "detail": "{\"valor\":\"json\",\"texto\":\"JSON (datos crudos)\",\"sel\":\"true\",\"cerrado\":true,\"foco\":\"dl-format-toggle\"}"
+    },
+    {
+      "id": "dropdown-escape",
+      "desc": "Escape cierra sin seleccionar y devuelve el foco",
+      "pass": true,
+      "detail": "{\"cerrado\":true,\"foco\":\"dl-format-toggle\",\"valor\":\"json\"}"
+    },
+    {
+      "id": "dropdown-custom",
+      "desc": "elegir Personalizado muestra el campo de cantidad",
+      "pass": true,
+      "detail": "{\"valor\":\"custom\",\"campoVisible\":true}"
+    },
+    {
+      "id": "descarga-invalida",
+      "desc": "cantidad 0 muestra error de validación",
+      "pass": true,
+      "detail": "Escribí una cantidad mayor a 0."
+    },
+    {
+      "id": "descarga-ok",
+      "desc": "cantidad válida informa la descarga",
+      "pass": true,
+      "detail": "Descarga iniciada: 12 registros."
+    },
+    {
+      "id": "modal-descarga-escape",
+      "desc": "Escape cierra y devuelve el foco al botón de descarga",
+      "pass": true,
+      "detail": "{\"cerrado\":true,\"foco\":\"btn-download\"}"
+    },
+    {
+      "id": "modal-info",
+      "desc": "el modal de información abre y cierra con Escape",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "tema-toggle",
+      "desc": "Enter en el botón cambia a tema claro",
+      "pass": true,
+      "detail": "light"
+    },
+    {
+      "id": "axe-claro",
+      "desc": "axe-core en claro sin violaciones serias o críticas",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "id": "axe-oscuro",
+      "desc": "axe-core en oscuro sin violaciones serias o críticas",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "id": "a11y-nombres",
+      "desc": "accesibilidad snapshot no disponible (limitación del entorno)",
+      "pass": true,
+      "detail": "snapshot returned null"
+    },
+    {
+      "id": "movil-sin-overflow",
+      "desc": "sin desbordamiento horizontal a 390 px",
+      "pass": true,
+      "detail": "overflow: -15px"
+    },
+    {
+      "id": "axe-movil",
+      "desc": "axe-core en móvil sin violaciones serias o críticas",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "id": "vacio-estados",
+      "desc": "sin datos se muestran los estados vacíos y no el banner de error",
+      "pass": true,
+      "detail": "{\"gridOculto\":true,\"vacio\":true,\"graficoVacio\":true,\"canvasOculto\":true,\"sinBanner\":true}"
+    },
+    {
+      "id": "error-banner",
+      "desc": "un fallo de red muestra el banner con reintento",
+      "pass": true,
+      "detail": "{\"banner\":true,\"texto\":\"No se pudieron cargar las mediciones. Revisá la conexión y reintentá.\",\"gridOculto\":true}"
+    },
+    {
+      "id": "error-reintento",
+      "desc": "Reintentar recupera la carga normal",
+      "pass": true,
+      "detail": "{\"banner\":true,\"tarjetas\":10}"
+    }
+  ]
+}
