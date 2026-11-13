@@ -274,8 +274,8 @@ story.append(Spacer(1, 10))
 story.append(Paragraph("Equipo de trabajo", S["autor"]))
 story.append(Paragraph(
     "Roy Luciano Molina · Maximo Valdez Leguina · Candela Rojas Perassi · "
-    "María Pía Olivar · Benicio Gael Pieroni · Joaquín Valdecanto · "
-    "Tatiana Maturano · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
+    "María Pía Olivar · Benicio Gael Pieroni · Fabricio Thomás Amicone · "
+    "Ramiro Walter Monasterio · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
 story.append(Paragraph(
     "Docente: Tadeo Lobo — Tecnología de Control.", S["equipo"]))
 story.append(Paragraph(
@@ -568,8 +568,8 @@ tabla([
     ["María Pía Olivar", "Armado y presentación del gabinete."],
     ["Benicio Gael Pieroni", "Programación web, arquitectura y puesta a punto; "
      "consolidación del informe."],
-    ["Joaquín Valdecanto", "Colaboración en el proyecto."],
-    ["Tatiana Maturano", "Registro fotográfico del proceso."],
+    ["Fabricio Thomás Amicone", "Colaboración en el proyecto."],
+    ["Ramiro Walter Monasterio", "Colaboración en el proyecto."],
     ["Bautista Argañaraz", "Colaboración en el proyecto."],
     ["Jonás Barreiro", "Informe de sensores, placas y proyecto final."],
     ["Tadeo Lobo (docente)", "Tecnología de Control; acompañamiento y "

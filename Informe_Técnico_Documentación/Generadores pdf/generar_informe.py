@@ -339,8 +339,8 @@ story.append(Spacer(1, 12))
 story.append(Paragraph("Equipo de trabajo", S["autor"]))
 story.append(Paragraph(
     "Roy Luciano Molina · Maximo Valdez Leguina · Candela Rojas Perassi · "
-    "María Pía Olivar · Benicio Gael Pieroni · Joaquín Valdecanto · "
-    "Tatiana Maturano · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
+    "María Pía Olivar · Benicio Gael Pieroni · Fabricio Thomás Amicone · "
+    "Ramiro Walter Monasterio · Bautista Argañaraz · Jonás Barreiro", S["equipo"]))
 story.append(Paragraph(
     "Documento consolidado por Benicio Gael Pieroni. 29 de octubre de 2026.",
     S["equipo"]))
@@ -512,8 +512,8 @@ tabla([
     ["Benicio Gael Pieroni",
      "Programación de la app web, diseño de la arquitectura y puesta a "
      "punto del proyecto; consolidación de este informe."],
-    ["Joaquín Valdecanto", "Colaboración en el proyecto."],
-    ["Tatiana Maturano", "Registro fotográfico del proceso."],
+    ["Fabricio Thomás Amicone", "Colaboración en el proyecto."],
+    ["Ramiro Walter Monasterio", "Colaboración en el proyecto."],
     ["Bautista Argañaraz", "Colaboración en el proyecto."],
     ["Jonás Barreiro",
      "Elaboración del informe de sensores, placas y proyecto final."],
@@ -1548,8 +1548,7 @@ p("Este anexo reúne todo el material gráfico disponible: 16 diagramas, "
   "esquemas y capturas de la documentación del equipo y las 43 fotografías "
   "del archivo del proyecto (F.01–F.43). Las figuras D.1 a D.4 destacan "
   "una selección de este mismo conjunto. Las fotografías fueron tomadas por "
-  "Tatiana Maturano y el equipo; el orden reproduce la secuencia de los "
-  "archivos originales.")
+  "el equipo; el orden reproduce la secuencia de los archivos originales.")
 h2("Diagramas, esquemas y capturas")
 fig(FIG / "fig_14.jpeg",
     "Figura D.1. Gabinete: diseño y terminaciones.")

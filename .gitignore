@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 docs/.vscode/
+Informe_Técnico_Documentación/Generadores pdf/_cache_img/
+Informe_Técnico_Documentación/Generadores pdf/datos_resumen.json
