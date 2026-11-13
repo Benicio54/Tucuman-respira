@@ -516,7 +516,7 @@ tabla([
     ["Ramiro Walter Monasterio", "Colaboración en el proyecto."],
     ["Bautista Argañaraz", "Colaboración en el proyecto."],
     ["Jonás Barreiro",
-     "Elaboración del informe de sensores, placas y proyecto final."],
+     "Elaboración del informe de sensores, placas y proyecto final (Informe)."],
     ["Tadeo Lobo (docente)",
      "Tecnología de Control; acompañamiento y supervisión del proyecto."],
 ], cols(0.28, 0.72), negrita_primera=True)

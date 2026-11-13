@@ -571,7 +571,8 @@ tabla([
     ["Fabricio Thomás Amicone", "Colaboración en el proyecto."],
     ["Ramiro Walter Monasterio", "Colaboración en el proyecto."],
     ["Bautista Argañaraz", "Colaboración en el proyecto."],
-    ["Jonás Barreiro", "Informe de sensores, placas y proyecto final."],
+    ["Jonás Barreiro",
+     "Elaboración del informe de sensores, placas y proyecto final (Informe)."],
     ["Tadeo Lobo (docente)", "Tecnología de Control; acompañamiento y "
      "supervisión."],
 ], cols(0.28, 0.72), small=True, negrita_primera=True)
